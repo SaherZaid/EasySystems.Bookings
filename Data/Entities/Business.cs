@@ -58,11 +58,56 @@ public class Business
 
     public bool AllowOnlineBookings { get; set; } = true;
 
+    // Legacy/default fallback hours.
+    // These can still be used as fallback if a specific day has missing values.
     public TimeSpan OpeningTime { get; set; } = new(9, 0, 0);
 
     public TimeSpan ClosingTime { get; set; } = new(21, 0, 0);
 
     public int BookingIntervalMinutes { get; set; } = 15;
+
+    // Weekly opening hours
+    public bool MondayIsOpen { get; set; } = true;
+
+    public TimeSpan MondayOpeningTime { get; set; } = new(9, 0, 0);
+
+    public TimeSpan MondayClosingTime { get; set; } = new(18, 0, 0);
+
+    public bool TuesdayIsOpen { get; set; } = true;
+
+    public TimeSpan TuesdayOpeningTime { get; set; } = new(9, 0, 0);
+
+    public TimeSpan TuesdayClosingTime { get; set; } = new(18, 0, 0);
+
+    public bool WednesdayIsOpen { get; set; } = true;
+
+    public TimeSpan WednesdayOpeningTime { get; set; } = new(9, 0, 0);
+
+    public TimeSpan WednesdayClosingTime { get; set; } = new(18, 0, 0);
+
+    public bool ThursdayIsOpen { get; set; } = true;
+
+    public TimeSpan ThursdayOpeningTime { get; set; } = new(9, 0, 0);
+
+    public TimeSpan ThursdayClosingTime { get; set; } = new(18, 0, 0);
+
+    public bool FridayIsOpen { get; set; } = true;
+
+    public TimeSpan FridayOpeningTime { get; set; } = new(9, 0, 0);
+
+    public TimeSpan FridayClosingTime { get; set; } = new(18, 0, 0);
+
+    public bool SaturdayIsOpen { get; set; } = true;
+
+    public TimeSpan SaturdayOpeningTime { get; set; } = new(10, 0, 0);
+
+    public TimeSpan SaturdayClosingTime { get; set; } = new(16, 0, 0);
+
+    public bool SundayIsOpen { get; set; }
+
+    public TimeSpan SundayOpeningTime { get; set; } = new(10, 0, 0);
+
+    public TimeSpan SundayClosingTime { get; set; } = new(16, 0, 0);
 
     [MaxLength(30)]
     public string PrimaryColor { get; set; } = "#151515";

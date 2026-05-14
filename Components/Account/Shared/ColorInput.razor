@@ -1,0 +1,34 @@
+﻿<div class="settings-color-item">
+    <label>@Label</label>
+
+    <div class="settings-color-row">
+        <input type="color"
+               value="@Value"
+               @oninput="OnColorChanged" />
+
+        <input class="settings-input"
+               value="@Value"
+               @oninput="OnTextChanged" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Label { get; set; } = "";
+
+    [Parameter]
+    public string Value { get; set; } = "#000000";
+
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+
+    private async Task OnColorChanged(ChangeEventArgs e)
+    {
+        await ValueChanged.InvokeAsync(e.Value?.ToString() ?? "#000000");
+    }
+
+    private async Task OnTextChanged(ChangeEventArgs e)
+    {
+        await ValueChanged.InvokeAsync(e.Value?.ToString() ?? "#000000");
+    }
+}

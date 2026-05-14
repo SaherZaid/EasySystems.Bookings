@@ -1,4 +1,5 @@
 ﻿@page "/admin/businesses"
+@rendermode InteractiveServer
 
 @using EasySystems.Bookings.Data
 @using EasySystems.Bookings.Data.Access
@@ -16,7 +17,7 @@
 
 @attribute [Authorize]
 
-<PageTitle>Businesses | EasySystems</PageTitle>
+<PageTitle>Verksamheter | EasySystems</PageTitle>
 
 <AdminNavbar BusinessId="navbarBusinessId" />
 
@@ -34,21 +35,21 @@
         @if (isLoading)
         {
             <div class="roles-loading">
-                Loading business...
+                Laddar verksamhet...
             </div>
         }
         else if (!string.IsNullOrWhiteSpace(errorMessage))
         {
             <div class="roles-empty">
-                <h2>Access denied</h2>
+                <h2>Åtkomst nekad</h2>
                 <p>@errorMessage</p>
             </div>
         }
         else if (!businessCards.Any())
         {
             <div class="roles-empty">
-                <h2>No business found</h2>
-                <p>Your account is not connected to any active business.</p>
+                <h2>Ingen verksamhet hittades</h2>
+                <p>Ditt konto är inte kopplat till någon aktiv verksamhet.</p>
             </div>
         }
         else
@@ -68,7 +69,7 @@
 
                             <div>
                                 <h2>@business.Name</h2>
-                                <p>@business.Slug</p>
+                                <p>@DisplayOrFallback(business.BusinessType, "Bokningsverksamhet")</p>
                             </div>
                         </div>
 
@@ -76,91 +77,104 @@
                             @if (permissions.HasAccess)
                             {
                                 <a class="primary" href="/admin/businesses/@business.Id/overview">
-                                    Overview
+                                    Översikt
                                 </a>
                             }
 
                             @if (permissions.CanManageServices)
                             {
                                 <a href="/admin/businesses/@business.Id/services">
-                                    Services
+                                    Tjänster
                                 </a>
                             }
 
                             @if (permissions.CanManageStaff)
                             {
                                 <a href="/admin/businesses/@business.Id/staff">
-                                    Staff
+                                    Personal
                                 </a>
                             }
 
                             @if (permissions.CanManageBookings)
                             {
                                 <a href="/admin/businesses/@business.Id/bookings">
-                                    Bookings
+                                    Bokningar
                                 </a>
                             }
 
                             @if (permissions.CanManageCalendar)
                             {
                                 <a href="/admin/businesses/@business.Id/calendar">
-                                    Calendar
+                                    Kalender
                                 </a>
                             }
 
                             @if (permissions.IsPlatformSuperAdmin || permissions.Role == AppRoles.BusinessOwner || permissions.CanManageSettings)
                             {
                                 <a href="/admin/businesses/@business.Id/roles">
-                                    Manage roles
+                                    Roller
                                 </a>
                             }
 
                             @if (permissions.CanManageSettings)
                             {
                                 <a href="/admin/businesses/edit/@business.Id">
-                                    Settings
+                                    Inställningar
                                 </a>
                             }
                         </div>
 
                         <div class="admin-business-meta">
                             <div>
-                                <span>Type</span>
-                                <strong>@(string.IsNullOrWhiteSpace(business.BusinessType) ? "No type" : business.BusinessType)</strong>
-                            </div>
-
-                            <div>
-                                <span>Location</span>
+                                <span>Plats</span>
                                 <strong>@GetLocation(business)</strong>
                             </div>
 
                             <div>
-                                <span>Working hours</span>
-                                <strong>
-                                    @business.OpeningTime.ToString(@"hh\:mm")
-                                    -
-                                    @business.ClosingTime.ToString(@"hh\:mm")
-                                </strong>
+                                <span>Idag</span>
+                                <strong>@GetTodayHoursText(business)</strong>
+                            </div>
+
+                            <div>
+                                <span>Bokningsintervall</span>
+                                <strong>@business.BookingIntervalMinutes min</strong>
+                            </div>
+                        </div>
+
+                        <div class="business-week-card">
+                            <div class="business-week-header">
+                                <strong>Öppettider</strong>
+                                <span>@GetWeeklyOpenDaysCount(business) öppna dagar</span>
+                            </div>
+
+                            <div class="business-week-list">
+                                @foreach (var day in GetWeeklyHours(business))
+                                {
+                                    <div class="business-week-row @(day.IsOpen ? "open" : "closed")">
+                                        <span>@day.Label</span>
+                                        <strong>@(day.IsOpen ? $"{day.Open:hh\\:mm} - {day.Close:hh\\:mm}" : "Stängt")</strong>
+                                    </div>
+                                }
                             </div>
                         </div>
 
                         <div class="admin-business-status">
                             @if (business.IsActive)
                             {
-                                <span class="roles-status-pill active">Active</span>
+                                <span class="roles-status-pill active">Aktiv</span>
                             }
                             else
                             {
-                                <span class="roles-status-pill muted">Inactive</span>
+                                <span class="roles-status-pill muted">Inaktiv</span>
                             }
 
                             @if (business.AllowOnlineBookings)
                             {
-                                <span class="roles-status-pill">Online bookings</span>
+                                <span class="roles-status-pill">Onlinebokning</span>
                             }
                             else
                             {
-                                <span class="roles-status-pill muted">Online disabled</span>
+                                <span class="roles-status-pill muted">Onlinebokning av</span>
                             }
 
                             @if (!string.IsNullOrWhiteSpace(permissions.Role))
@@ -179,14 +193,12 @@
 
 @code {
     private bool isLoading = true;
-
     private string? errorMessage;
-
     private int? navbarBusinessId;
 
     private string heroLabel = "Admin";
-    private string heroTitle = "Business workspace";
-    private string heroDescription = "Open the tools you have permission to use.";
+    private string heroTitle = "Verksamhet";
+    private string heroDescription = "Öppna de verktyg du har behörighet att använda.";
 
     private List<BusinessCardModel> businessCards = [];
 
@@ -208,8 +220,8 @@
         if (principal.IsInRole(AppRoles.PlatformSuperAdmin))
         {
             heroLabel = "Platform admin";
-            heroTitle = "Businesses";
-            heroDescription = "Choose a business and manage its workspace.";
+            heroTitle = "Verksamheter";
+            heroDescription = "Välj en verksamhet och hantera dess bokningssystem.";
 
             var businesses = await db.Businesses
                 .AsNoTracking()
@@ -242,7 +254,7 @@
 
         if (string.IsNullOrWhiteSpace(userId))
         {
-            errorMessage = "We could not identify your account.";
+            errorMessage = "Vi kunde inte identifiera ditt konto.";
             isLoading = false;
             return;
         }
@@ -256,26 +268,25 @@
 
         if (business is null)
         {
-            errorMessage = "Your account is not connected to an active business.";
+            errorMessage = "Ditt konto är inte kopplat till någon aktiv verksamhet.";
             isLoading = false;
             return;
         }
 
-        var permissions = await BusinessAccessService
-            .GetPermissionsAsync(principal, business.Id);
+        var permissions = await BusinessAccessService.GetPermissionsAsync(principal, business.Id);
 
         if (!permissions.HasAccess)
         {
-            errorMessage = "You do not have permission to access this business.";
+            errorMessage = "Du har inte behörighet att öppna denna verksamhet.";
             isLoading = false;
             return;
         }
 
         navbarBusinessId = business.Id;
 
-        heroLabel = "Business admin";
+        heroLabel = "Verksamhetsadmin";
         heroTitle = business.Name;
-        heroDescription = "Use the navigation or the buttons below to open your allowed tools.";
+        heroDescription = "Använd navigationen eller knapparna nedan för att öppna dina verktyg.";
 
         businessCards =
         [
@@ -310,13 +321,67 @@
         if (!string.IsNullOrWhiteSpace(business.Address))
             return business.Address;
 
-        return "No location";
+        return "Ingen plats";
+    }
+
+    private static string DisplayOrFallback(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    private static string GetTodayHoursText(Business business)
+    {
+        var today = GetDayHours(business, DateTime.Today.DayOfWeek);
+
+        if (!today.IsOpen)
+            return "Stängt idag";
+
+        return $"{today.Open:hh\\:mm} - {today.Close:hh\\:mm}";
+    }
+
+    private static int GetWeeklyOpenDaysCount(Business business)
+    {
+        return GetWeeklyHours(business).Count(x => x.IsOpen);
+    }
+
+    private static List<DayHoursModel> GetWeeklyHours(Business business)
+    {
+        return
+        [
+            new("Mån", business.MondayIsOpen, business.MondayOpeningTime, business.MondayClosingTime),
+        new("Tis", business.TuesdayIsOpen, business.TuesdayOpeningTime, business.TuesdayClosingTime),
+        new("Ons", business.WednesdayIsOpen, business.WednesdayOpeningTime, business.WednesdayClosingTime),
+        new("Tor", business.ThursdayIsOpen, business.ThursdayOpeningTime, business.ThursdayClosingTime),
+        new("Fre", business.FridayIsOpen, business.FridayOpeningTime, business.FridayClosingTime),
+        new("Lör", business.SaturdayIsOpen, business.SaturdayOpeningTime, business.SaturdayClosingTime),
+        new("Sön", business.SundayIsOpen, business.SundayOpeningTime, business.SundayClosingTime)
+        ];
+    }
+
+    private static DayHoursModel GetDayHours(Business business, DayOfWeek day)
+    {
+        return day switch
+        {
+            DayOfWeek.Monday => new("Mån", business.MondayIsOpen, business.MondayOpeningTime, business.MondayClosingTime),
+            DayOfWeek.Tuesday => new("Tis", business.TuesdayIsOpen, business.TuesdayOpeningTime, business.TuesdayClosingTime),
+            DayOfWeek.Wednesday => new("Ons", business.WednesdayIsOpen, business.WednesdayOpeningTime, business.WednesdayClosingTime),
+            DayOfWeek.Thursday => new("Tor", business.ThursdayIsOpen, business.ThursdayOpeningTime, business.ThursdayClosingTime),
+            DayOfWeek.Friday => new("Fre", business.FridayIsOpen, business.FridayOpeningTime, business.FridayClosingTime),
+            DayOfWeek.Saturday => new("Lör", business.SaturdayIsOpen, business.SaturdayOpeningTime, business.SaturdayClosingTime),
+            DayOfWeek.Sunday => new("Sön", business.SundayIsOpen, business.SundayOpeningTime, business.SundayClosingTime),
+            _ => new("", false, TimeSpan.Zero, TimeSpan.Zero)
+        };
     }
 
     private sealed class BusinessCardModel
     {
         public Business Business { get; set; } = default!;
-
         public BusinessPermissionResult Permissions { get; set; } = new();
     }
+
+    private sealed record DayHoursModel(
+        string Label,
+        bool IsOpen,
+        TimeSpan Open,
+        TimeSpan Close);
 }

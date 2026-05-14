@@ -1,239 +1,396 @@
 ﻿@page "/admin/businesses/create"
+@rendermode InteractiveServer
 
 @using EasySystems.Bookings.Data
 @using EasySystems.Bookings.Data.Entities
 @using EasySystems.Bookings.Data.Identity
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Hosting
 @using Microsoft.EntityFrameworkCore
+@using System.IO
 
 @inject ApplicationDbContext Db
 @inject NavigationManager Navigation
+@inject IWebHostEnvironment Environment
 
 @attribute [Authorize(Roles = AppRoles.PlatformSuperAdmin)]
 
-<PageTitle>Create Business</PageTitle>
+<PageTitle>Skapa verksamhet | EasySystems</PageTitle>
 
 <AdminNavbar />
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1>Create Business</h1>
-        <p class="text-muted mb-0">
-            Create a new booking business with working hours and public settings.
-        </p>
-    </div>
+<div class="admin-page business-settings-page">
+    <div class="admin-shell">
 
-    <a class="btn btn-outline-secondary"
-       href="/admin/businesses">
-        Back
-    </a>
-</div>
-
-<EditForm Model="business" OnValidSubmit="CreateAsync">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
-
-    <div class="card shadow-sm border-0">
-        <div class="card-body">
-
-            <div class="mb-3">
-                <label class="form-label">Business name</label>
-                <InputText class="form-control" @bind-Value="business.Name" />
+        <section class="admin-hero">
+            <div>
+                <p class="admin-eyebrow">Ny verksamhet</p>
+                <h1>Skapa verksamhet</h1>
+                <p>Skapa en bokningssida med profil, kontaktuppgifter, öppettider, bilder och design.</p>
             </div>
 
-            <div class="mb-3">
-                <label class="form-label">Slug</label>
-                <InputText class="form-control" @bind-Value="business.Slug" />
-                <small class="text-muted">Example: lina-salon, stockholm-barber</small>
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label">Business type</label>
-                <InputText class="form-control" @bind-Value="business.BusinessType" />
-                <small class="text-muted">Example: Barber, Salon, Clinic</small>
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label">Description</label>
-                <InputTextArea class="form-control"
-                               rows="4"
-                               @bind-Value="business.Description" />
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Address</label>
-                    <InputText class="form-control" @bind-Value="business.Address" />
-                </div>
-
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">City</label>
-                    <InputText class="form-control" @bind-Value="business.City" />
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Phone</label>
-                    <InputText class="form-control" @bind-Value="business.Phone" />
-                </div>
-
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Email</label>
-                    <InputText class="form-control" @bind-Value="business.Email" />
-                </div>
-            </div>
-
-            <hr />
-
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Opening time</label>
-                    <InputText type="time"
-                               class="form-control"
-                               @bind-Value="openingTimeString" />
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Closing time</label>
-                    <InputText type="time"
-                               class="form-control"
-                               @bind-Value="closingTimeString" />
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Booking interval minutes</label>
-                    <InputNumber class="form-control"
-                                 @bind-Value="business.BookingIntervalMinutes" />
-                    <small class="text-muted">Example: 15, 30, 60</small>
-                </div>
-            </div>
-
-            <hr />
-
-            <div class="mb-3">
-                <label class="form-label">Logo URL</label>
-                <InputText class="form-control" @bind-Value="business.LogoUrl" />
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label">Cover image URL</label>
-                <InputText class="form-control" @bind-Value="business.CoverImageUrl" />
-            </div>
-
-            <div class="form-check mb-3">
-                <InputCheckbox class="form-check-input"
-                               @bind-Value="business.AllowOnlineBookings" />
-
-                <label class="form-check-label">
-                    Allow online bookings
-                </label>
-            </div>
-
-            <div class="form-check mb-4">
-                <InputCheckbox class="form-check-input"
-                               @bind-Value="business.IsActive" />
-
-                <label class="form-check-label">
-                    Active
-                </label>
-            </div>
-
-            @if (!string.IsNullOrWhiteSpace(errorMessage))
-            {
-                <div class="alert alert-danger">
-                    @errorMessage
-                </div>
-            }
-
-            <div class="d-flex gap-2 flex-wrap">
-                <button class="btn btn-primary" type="submit">
-                    Create Business
-                </button>
-
-                <a class="btn btn-outline-dark"
-                   href="/admin/businesses">
-                    Cancel
+            <div class="admin-hero-actions">
+                <a class="admin-secondary-btn" href="/admin/businesses">
+                    Tillbaka
                 </a>
             </div>
+        </section>
 
-        </div>
+        <EditForm Model="business" OnValidSubmit="CreateAsync">
+            <DataAnnotationsValidator />
+
+            <div class="business-settings-grid">
+
+                <section class="business-form-card">
+                    <h2>Grundinformation</h2>
+
+                    <label>Verksamhetens namn</label>
+                    <InputText class="settings-input" @bind-Value="business.Name" />
+
+                    <button type="button" class="settings-inline-btn" @onclick="GenerateSlug">
+                        Skapa slug från namn
+                    </button>
+
+                    <label>URL / slug</label>
+                    <small>Exempel: lina-salon, stockholm-barber, city-klinik</small>
+                    <InputText class="settings-input" @bind-Value="business.Slug" />
+
+                    <label>Typ av verksamhet</label>
+                    <small>Exempel: Salong, Barberare, Klinik, Massage, Naglar</small>
+                    <InputText class="settings-input" @bind-Value="business.BusinessType" />
+
+                    <label>Kort slogan</label>
+                    <InputText class="settings-input" @bind-Value="business.Tagline" />
+
+                    <label>Beskrivning</label>
+                    <InputTextArea class="settings-input settings-textarea" @bind-Value="business.Description" />
+
+                    <h2>Kontaktuppgifter</h2>
+
+                    <div class="settings-two-cols">
+                        <div>
+                            <label>Telefon</label>
+                            <InputText class="settings-input" @bind-Value="business.Phone" />
+                        </div>
+
+                        <div>
+                            <label>E-post</label>
+                            <InputText class="settings-input" @bind-Value="business.Email" />
+                        </div>
+                    </div>
+
+                    <div class="settings-two-cols">
+                        <div>
+                            <label>Adress</label>
+                            <InputText class="settings-input" @bind-Value="business.Address" />
+                        </div>
+
+                        <div>
+                            <label>Stad</label>
+                            <InputText class="settings-input" @bind-Value="business.City" />
+                        </div>
+                    </div>
+
+                    <h2>Sociala länkar</h2>
+
+                    <div class="settings-two-cols">
+                        <div>
+                            <label>Webbplats</label>
+                            <InputText class="settings-input" @bind-Value="business.WebsiteUrl" />
+                        </div>
+
+                        <div>
+                            <label>Instagram</label>
+                            <InputText class="settings-input" @bind-Value="business.InstagramUrl" />
+                        </div>
+                    </div>
+
+                    <div class="settings-two-cols">
+                        <div>
+                            <label>Facebook</label>
+                            <InputText class="settings-input" @bind-Value="business.FacebookUrl" />
+                        </div>
+
+                        <div>
+                            <label>TikTok</label>
+                            <InputText class="settings-input" @bind-Value="business.TikTokUrl" />
+                        </div>
+                    </div>
+
+                    <h2>Bokningsinställningar</h2>
+
+                    <label>Bokningsintervall i minuter</label>
+                    <small>Exempel: 15, 30 eller 60 minuter.</small>
+                    <InputNumber class="settings-input" @bind-Value="business.BookingIntervalMinutes" />
+
+                    <div class="settings-switch-grid">
+                        <label class="settings-switch">
+                            <InputCheckbox @bind-Value="business.AllowOnlineBookings" />
+                            <span>
+                                <strong>Onlinebokning</strong>
+                                <small>Kunder kan boka tider online.</small>
+                            </span>
+                        </label>
+
+                        <label class="settings-switch">
+                            <InputCheckbox @bind-Value="business.IsActive" />
+                            <span>
+                                <strong>Aktiv verksamhet</strong>
+                                <small>Verksamheten är synlig och aktiv.</small>
+                            </span>
+                        </label>
+                    </div>
+
+                    <h2>Öppettider per dag</h2>
+                    <small>Välj vilka dagar verksamheten är öppen och ändra tiderna precis som du vill.</small>
+
+                    <div class="weekly-hours-list">
+                        @foreach (var day in weeklyHours)
+                        {
+                            <div class="weekly-hours-row @(day.IsOpen ? "is-open" : "is-closed")">
+                                <label class="weekly-day-toggle">
+                                    <InputCheckbox @bind-Value="day.IsOpen" />
+                                    <span>
+                                        <strong>@day.Label</strong>
+                                        <small>@(day.IsOpen ? "Öppet" : "Stängt")</small>
+                                    </span>
+                                </label>
+
+                                <div class="weekly-time-inputs">
+                                    <InputText type="time"
+                                               class="settings-input"
+                                               @bind-Value="day.OpenText"
+                                               disabled="@(!day.IsOpen)" />
+
+                                    <span>till</span>
+
+                                    <InputText type="time"
+                                               class="settings-input"
+                                               @bind-Value="day.CloseText"
+                                               disabled="@(!day.IsOpen)" />
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <h2>Bilder</h2>
+
+                    <div class="settings-image-grid">
+                        <div class="settings-image-card">
+                            <label>Logotyp</label>
+
+                            @if (!string.IsNullOrWhiteSpace(business.LogoUrl))
+                            {
+                                <div class="settings-logo-preview">
+                                    <img src="@business.LogoUrl" alt="Logotyp" />
+                                </div>
+
+                                <button type="button" class="settings-danger-btn" @onclick="RemoveLogo">
+                                    Ta bort logotyp
+                                </button>
+                            }
+                            else
+                            {
+                                <div class="settings-empty-image">Ingen logotyp vald</div>
+                            }
+
+                            <InputFile class="settings-file" OnChange="UploadLogo" accept="image/png,image/jpeg,image/webp" />
+                        </div>
+
+                        <div class="settings-image-card">
+                            <label>Omslagsbild</label>
+
+                            @if (!string.IsNullOrWhiteSpace(business.CoverImageUrl))
+                            {
+                                <div class="settings-cover-preview">
+                                    <img src="@business.CoverImageUrl" alt="Omslagsbild" />
+                                </div>
+
+                                <button type="button" class="settings-danger-btn" @onclick="RemoveCover">
+                                    Ta bort omslagsbild
+                                </button>
+                            }
+                            else
+                            {
+                                <div class="settings-empty-image">Ingen omslagsbild vald</div>
+                            }
+
+                            <InputFile class="settings-file" OnChange="UploadCover" accept="image/png,image/jpeg,image/webp" />
+                        </div>
+                    </div>
+
+                    <h2>Designfärger</h2>
+
+                    <div class="settings-color-grid">
+                        <ColorInput Label="Huvudfärg" @bind-Value="business.PrimaryColor" />
+                        <ColorInput Label="Sekundär färg" @bind-Value="business.SecondaryColor" />
+                        <ColorInput Label="Sidbakgrund" @bind-Value="business.PageBackgroundColor" />
+                        <ColorInput Label="Sektionsbakgrund" @bind-Value="business.SectionBackgroundColor" />
+                        <ColorInput Label="Kortbakgrund" @bind-Value="business.CardBackgroundColor" />
+                        <ColorInput Label="Rubriker" @bind-Value="business.HeadingTextColor" />
+                        <ColorInput Label="Text" @bind-Value="business.BodyTextColor" />
+                        <ColorInput Label="Diskret text" @bind-Value="business.MutedTextColor" />
+                        <ColorInput Label="Huvudknapp" @bind-Value="business.ButtonBackgroundColor" />
+                        <ColorInput Label="Huvudknapp text" @bind-Value="business.ButtonTextColor" />
+                        <ColorInput Label="Sekundär knapp" @bind-Value="business.SecondaryButtonBackgroundColor" />
+                        <ColorInput Label="Sekundär knapp text" @bind-Value="business.SecondaryButtonTextColor" />
+                        <ColorInput Label="Toppmeny bakgrund" @bind-Value="business.NavbarBackgroundColor" />
+                        <ColorInput Label="Toppmeny text" @bind-Value="business.NavbarTextColor" />
+                        <ColorInput Label="Sidfot bakgrund" @bind-Value="business.FooterBackgroundColor" />
+                        <ColorInput Label="Sidfot text" @bind-Value="business.FooterTextColor" />
+                        <ColorInput Label="Hero-text" @bind-Value="business.HeroTextColor" />
+                        <ColorInput Label="Tjänstekort" @bind-Value="business.ServiceCardBackgroundColor" />
+                        <ColorInput Label="Personalkort" @bind-Value="business.StaffCardBackgroundColor" />
+                        <ColorInput Label="Bokningspanel" @bind-Value="business.BookingPanelBackgroundColor" />
+                        <ColorInput Label="Prisfärg" @bind-Value="business.PriceTextColor" />
+                        <ColorInput Label="Success" @bind-Value="business.SuccessColor" />
+                        <ColorInput Label="Varning" @bind-Value="business.WarningColor" />
+                        <ColorInput Label="Fara" @bind-Value="business.DangerColor" />
+                    </div>
+
+                    <label>Mörkt lager över omslagsbild</label>
+                    <InputText class="settings-input" @bind-Value="business.HeroOverlayColor" placeholder="rgba(0,0,0,.55)" />
+
+                    @if (!string.IsNullOrWhiteSpace(errorMessage))
+                    {
+                        <div class="settings-alert error">@errorMessage</div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(successMessage))
+                    {
+                        <div class="settings-alert success">@successMessage</div>
+                    }
+
+                    <div class="settings-actions">
+                        <button class="admin-primary-btn" type="submit" disabled="@isSaving">
+                            @(isSaving ? "Skapar..." : "Skapa verksamhet")
+                        </button>
+
+                        <a class="admin-secondary-btn" href="/admin/businesses">
+                            Avbryt
+                        </a>
+                    </div>
+                </section>
+
+                <aside class="business-preview-card">
+                    <p class="preview-label">Live preview</p>
+
+                    <div class="booking-public-preview" style="@GetPreviewStyle()">
+                        <div class="preview-navbar" style="@GetNavbarStyle()">
+                            <strong>@DisplayOrFallback(business.Name, "Verksamhet")</strong>
+                            <span>Boka</span>
+                            <span>Tjänster</span>
+                        </div>
+
+                        <div class="preview-hero" style="@GetHeroStyle()">
+                            <div class="preview-logo">
+                                @if (!string.IsNullOrWhiteSpace(business.LogoUrl))
+                                {
+                                    <img src="@business.LogoUrl" alt="Logotyp" />
+                                }
+                                else
+                                {
+                                    <span>@GetInitials()</span>
+                                }
+                            </div>
+
+                            <h2>@DisplayOrFallback(business.Name, "Verksamhetens namn")</h2>
+                            <p>@DisplayOrFallback(business.Tagline, "En modern bokningsupplevelse för dina kunder.")</p>
+
+                            <div class="preview-button-row">
+                                <button type="button" style="@GetButtonStyle()">Boka tid</button>
+                                <button type="button" style="@GetSecondaryButtonStyle()">Läs mer</button>
+                            </div>
+                        </div>
+
+                        <div class="preview-info" style="@GetSectionStyle()">
+                            <span>@DisplayOrFallback(business.BusinessType, "Typ")</span>
+                            <span>@DisplayOrFallback(business.City, "Stad")</span>
+                            <span>@GetPreviewOpeningHours()</span>
+                        </div>
+
+                        <div class="preview-service-card" style="@GetServiceCardStyle()">
+                            <strong style="@GetHeadingTextStyle()">Exempeltjänst</strong>
+                            <p style="@GetBodyTextStyle()">Här visas hur en tjänst kan presenteras för kunden.</p>
+                            <span class="preview-price" style="@GetPriceTextStyle()">499 kr</span>
+                        </div>
+
+                        <div class="preview-staff-card" style="@GetStaffCardStyle()">
+                            <div class="preview-staff-avatar">LS</div>
+                            <div>
+                                <strong style="@GetHeadingTextStyle()">Lina</strong>
+                                <p style="@GetMutedTextStyle()">Specialist</p>
+                            </div>
+                        </div>
+
+                        <div class="preview-booking-panel" style="@GetBookingPanelStyle()">
+                            <strong style="@GetHeadingTextStyle()">Bokningspanel</strong>
+                            <p style="@GetBodyTextStyle()">Datum, tider och kundinformation visas här.</p>
+
+                            <div class="preview-status-row">
+                                <span style="@GetSuccessStatusStyle()">Bekräftad</span>
+                                <span style="@GetWarningStatusStyle()">Väntar</span>
+                                <span style="@GetDangerStatusStyle()">Avbokad</span>
+                            </div>
+                        </div>
+
+                        <div class="preview-footer" style="@GetFooterStyle()">
+                            <strong>@DisplayOrFallback(business.Name, "Verksamhet")</strong>
+                            <span>Kontakt · Villkor · Bokningar</span>
+                        </div>
+                    </div>
+                </aside>
+
+            </div>
+        </EditForm>
     </div>
-</EditForm>
+</div>
 
 @code {
-    private Business business = new()
-        {
-            IsActive = true,
-            AllowOnlineBookings = true,
-            OpeningTime = new TimeSpan(9, 0, 0),
-            ClosingTime = new TimeSpan(21, 0, 0),
-            BookingIntervalMinutes = 15
-        };
-
+    private Business business = new();
     private string? errorMessage;
+    private string? successMessage;
+    private bool isSaving;
+    private List<WeeklyHoursModel> weeklyHours = [];
 
-    private string openingTimeString
-    {
-        get => business.OpeningTime.ToString(@"hh\:mm");
-        set
-        {
-            if (TimeSpan.TryParse(value, out var time))
-            {
-                business.OpeningTime = time;
-            }
-        }
-    }
+    private const long MaxFileSize = 5 * 1024 * 1024;
 
-    private string closingTimeString
+    protected override void OnInitialized()
     {
-        get => business.ClosingTime.ToString(@"hh\:mm");
-        set
-        {
-            if (TimeSpan.TryParse(value, out var time))
-            {
-                business.ClosingTime = time;
-            }
-        }
+        ApplyDefaultDesignValues();
+        LoadWeeklyHoursFromBusiness();
     }
 
     private async Task CreateAsync()
     {
+        isSaving = true;
         errorMessage = null;
+        successMessage = null;
 
         business.Name = business.Name.Trim();
-        business.Slug = business.Slug.Trim().ToLower();
+        business.Slug = NormalizeSlug(business.Slug);
 
-        if (string.IsNullOrWhiteSpace(business.Name))
+        ApplyDefaultDesignValues();
+
+        if (!ApplyWeeklyHoursToBusiness())
         {
-            errorMessage = "Business name is required.";
+            isSaving = false;
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(business.Slug))
+        if (!ValidateBusiness())
         {
-            errorMessage = "Slug is required.";
+            isSaving = false;
             return;
         }
 
-        if (business.ClosingTime <= business.OpeningTime)
-        {
-            errorMessage = "Closing time must be after opening time.";
-            return;
-        }
-
-        if (business.BookingIntervalMinutes <= 0)
-        {
-            errorMessage = "Booking interval must be greater than 0.";
-            return;
-        }
-
-        var slugExists = await Db.Businesses
-            .AnyAsync(b => b.Slug == business.Slug);
+        var slugExists = await Db.Businesses.AnyAsync(b => b.Slug == business.Slug);
 
         if (slugExists)
         {
-            errorMessage = "This slug is already used by another business.";
+            errorMessage = "Denna URL används redan av en annan verksamhet.";
+            isSaving = false;
             return;
         }
 
@@ -243,5 +400,344 @@
         await Db.SaveChangesAsync();
 
         Navigation.NavigateTo($"/admin/businesses/{business.Id}/overview");
+    }
+
+    private bool ValidateBusiness()
+    {
+        if (string.IsNullOrWhiteSpace(business.Name))
+        {
+            errorMessage = "Verksamhetens namn krävs.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(business.Slug))
+        {
+            errorMessage = "URL / slug krävs.";
+            return false;
+        }
+
+        if (business.BookingIntervalMinutes <= 0)
+        {
+            errorMessage = "Bokningsintervallet måste vara större än 0.";
+            return false;
+        }
+
+        if (!weeklyHours.Any(x => x.IsOpen))
+        {
+            errorMessage = "Minst en dag måste vara öppen.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool ApplyWeeklyHoursToBusiness()
+    {
+        foreach (var day in weeklyHours.Where(x => x.IsOpen))
+        {
+            if (!TimeSpan.TryParse(day.OpenText, out var openTime))
+            {
+                errorMessage = $"Öppningstiden för {day.Label} är ogiltig.";
+                return false;
+            }
+
+            if (!TimeSpan.TryParse(day.CloseText, out var closeTime))
+            {
+                errorMessage = $"Stängningstiden för {day.Label} är ogiltig.";
+                return false;
+            }
+
+            if (closeTime <= openTime)
+            {
+                errorMessage = $"Stängningstiden måste vara efter öppningstiden för {day.Label}.";
+                return false;
+            }
+
+            day.Open = openTime;
+            day.Close = closeTime;
+        }
+
+        foreach (var day in weeklyHours)
+            SetDayHours(day);
+
+        var firstOpenDay = weeklyHours.FirstOrDefault(x => x.IsOpen);
+
+        if (firstOpenDay is not null)
+        {
+            business.OpeningTime = firstOpenDay.Open;
+            business.ClosingTime = firstOpenDay.Close;
+        }
+
+        return true;
+    }
+
+    private void LoadWeeklyHoursFromBusiness()
+    {
+        weeklyHours =
+        [
+            new("Måndag", DayOfWeek.Monday, business.MondayIsOpen, business.MondayOpeningTime, business.MondayClosingTime),
+        new("Tisdag", DayOfWeek.Tuesday, business.TuesdayIsOpen, business.TuesdayOpeningTime, business.TuesdayClosingTime),
+        new("Onsdag", DayOfWeek.Wednesday, business.WednesdayIsOpen, business.WednesdayOpeningTime, business.WednesdayClosingTime),
+        new("Torsdag", DayOfWeek.Thursday, business.ThursdayIsOpen, business.ThursdayOpeningTime, business.ThursdayClosingTime),
+        new("Fredag", DayOfWeek.Friday, business.FridayIsOpen, business.FridayOpeningTime, business.FridayClosingTime),
+        new("Lördag", DayOfWeek.Saturday, business.SaturdayIsOpen, business.SaturdayOpeningTime, business.SaturdayClosingTime),
+        new("Söndag", DayOfWeek.Sunday, business.SundayIsOpen, business.SundayOpeningTime, business.SundayClosingTime)
+        ];
+    }
+
+    private void SetDayHours(WeeklyHoursModel day)
+    {
+        switch (day.Day)
+        {
+            case DayOfWeek.Monday:
+                business.MondayIsOpen = day.IsOpen;
+                business.MondayOpeningTime = day.Open;
+                business.MondayClosingTime = day.Close;
+                break;
+            case DayOfWeek.Tuesday:
+                business.TuesdayIsOpen = day.IsOpen;
+                business.TuesdayOpeningTime = day.Open;
+                business.TuesdayClosingTime = day.Close;
+                break;
+            case DayOfWeek.Wednesday:
+                business.WednesdayIsOpen = day.IsOpen;
+                business.WednesdayOpeningTime = day.Open;
+                business.WednesdayClosingTime = day.Close;
+                break;
+            case DayOfWeek.Thursday:
+                business.ThursdayIsOpen = day.IsOpen;
+                business.ThursdayOpeningTime = day.Open;
+                business.ThursdayClosingTime = day.Close;
+                break;
+            case DayOfWeek.Friday:
+                business.FridayIsOpen = day.IsOpen;
+                business.FridayOpeningTime = day.Open;
+                business.FridayClosingTime = day.Close;
+                break;
+            case DayOfWeek.Saturday:
+                business.SaturdayIsOpen = day.IsOpen;
+                business.SaturdayOpeningTime = day.Open;
+                business.SaturdayClosingTime = day.Close;
+                break;
+            case DayOfWeek.Sunday:
+                business.SundayIsOpen = day.IsOpen;
+                business.SundayOpeningTime = day.Open;
+                business.SundayClosingTime = day.Close;
+                break;
+        }
+    }
+
+    private void GenerateSlug()
+    {
+        business.Slug = NormalizeSlug(business.Name);
+    }
+
+    private async Task UploadLogo(InputFileChangeEventArgs e)
+    {
+        business.LogoUrl = await SaveImageAsync(e.File, "logos");
+    }
+
+    private async Task UploadCover(InputFileChangeEventArgs e)
+    {
+        business.CoverImageUrl = await SaveImageAsync(e.File, "covers");
+    }
+
+    private async Task<string> SaveImageAsync(IBrowserFile file, string folderName)
+    {
+        errorMessage = null;
+
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+        var extension = Path.GetExtension(file.Name).ToLowerInvariant();
+
+        if (!allowedExtensions.Contains(extension))
+        {
+            errorMessage = "Endast JPG, PNG och WEBP är tillåtna.";
+            return "";
+        }
+
+        if (file.Size > MaxFileSize)
+        {
+            errorMessage = "Bilden måste vara mindre än 5 MB.";
+            return "";
+        }
+
+        var uploadFolder = Path.Combine(Environment.WebRootPath, "uploads", "businesses", folderName);
+        Directory.CreateDirectory(uploadFolder);
+
+        var fileName = $"{Guid.NewGuid()}{extension}";
+        var fullPath = Path.Combine(uploadFolder, fileName);
+        var relativePath = $"/uploads/businesses/{folderName}/{fileName}";
+
+        await using var readStream = file.OpenReadStream(MaxFileSize);
+        await using var writeStream = File.Create(fullPath);
+        await readStream.CopyToAsync(writeStream);
+
+        successMessage = "Bilden har laddats upp.";
+
+        return relativePath;
+    }
+
+    private void RemoveLogo()
+    {
+        business.LogoUrl = null;
+    }
+
+    private void RemoveCover()
+    {
+        business.CoverImageUrl = null;
+    }
+
+    private void ApplyDefaultDesignValues()
+    {
+        business.PrimaryColor = CssValue(business.PrimaryColor, "#151515");
+        business.SecondaryColor = CssValue(business.SecondaryColor, "#C9A46A");
+        business.PageBackgroundColor = CssValue(business.PageBackgroundColor, "#F8F4ED");
+        business.SectionBackgroundColor = CssValue(business.SectionBackgroundColor, "#FFFFFF");
+        business.CardBackgroundColor = CssValue(business.CardBackgroundColor, "#FFFFFF");
+        business.HeadingTextColor = CssValue(business.HeadingTextColor, "#151515");
+        business.BodyTextColor = CssValue(business.BodyTextColor, "#4B5563");
+        business.MutedTextColor = CssValue(business.MutedTextColor, "#7A6F63");
+        business.ButtonBackgroundColor = CssValue(business.ButtonBackgroundColor, "#151515");
+        business.ButtonTextColor = CssValue(business.ButtonTextColor, "#FFFFFF");
+        business.SecondaryButtonBackgroundColor = CssValue(business.SecondaryButtonBackgroundColor, "#FFFFFF");
+        business.SecondaryButtonTextColor = CssValue(business.SecondaryButtonTextColor, "#151515");
+        business.NavbarBackgroundColor = CssValue(business.NavbarBackgroundColor, "#FFFFFF");
+        business.NavbarTextColor = CssValue(business.NavbarTextColor, "#151515");
+        business.FooterBackgroundColor = CssValue(business.FooterBackgroundColor, "#151515");
+        business.FooterTextColor = CssValue(business.FooterTextColor, "#FFFFFF");
+        business.HeroTextColor = CssValue(business.HeroTextColor, "#FFFFFF");
+        business.HeroOverlayColor = CssValue(business.HeroOverlayColor, "rgba(0,0,0,.55)");
+        business.ServiceCardBackgroundColor = CssValue(business.ServiceCardBackgroundColor, "#FFFFFF");
+        business.PriceTextColor = CssValue(business.PriceTextColor, "#151515");
+        business.StaffCardBackgroundColor = CssValue(business.StaffCardBackgroundColor, "#FFFFFF");
+        business.BookingPanelBackgroundColor = CssValue(business.BookingPanelBackgroundColor, "#FFFFFF");
+        business.SuccessColor = CssValue(business.SuccessColor, "#087443");
+        business.WarningColor = CssValue(business.WarningColor, "#B45309");
+        business.DangerColor = CssValue(business.DangerColor, "#B42318");
+    }
+
+    private static string CssValue(string? value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value;
+
+    private static string NormalizeSlug(string value)
+    {
+        return (value ?? "")
+            .Trim()
+            .ToLower()
+            .Replace(" ", "-")
+            .Replace("å", "a")
+            .Replace("ä", "a")
+            .Replace("ö", "o");
+    }
+
+    private string DisplayOrFallback(string? value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value;
+
+    private string GetInitials()
+    {
+        if (string.IsNullOrWhiteSpace(business.Name))
+            return "EB";
+
+        var parts = business.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+
+        return business.Name[0].ToString().ToUpper();
+    }
+
+    private string GetPreviewOpeningHours()
+    {
+        var first = weeklyHours.FirstOrDefault(x => x.IsOpen);
+
+        if (first is null)
+            return "Stängt";
+
+        return $"{first.Label[..3]} {first.OpenText}-{first.CloseText}";
+    }
+
+    private string GetPreviewStyle() =>
+        $"background-color:{CssValue(business.PageBackgroundColor, "#F8F4ED")}; color:{CssValue(business.BodyTextColor, "#4B5563")};";
+
+    private string GetNavbarStyle() =>
+        $"background-color:{CssValue(business.NavbarBackgroundColor, "#FFFFFF")}; color:{CssValue(business.NavbarTextColor, "#151515")};";
+
+    private string GetButtonStyle() =>
+        $"background-color:{CssValue(business.ButtonBackgroundColor, "#151515")}; color:{CssValue(business.ButtonTextColor, "#FFFFFF")};";
+
+    private string GetSecondaryButtonStyle() =>
+        $"background-color:{CssValue(business.SecondaryButtonBackgroundColor, "#FFFFFF")}; color:{CssValue(business.SecondaryButtonTextColor, "#151515")};";
+
+    private string GetSectionStyle() =>
+        $"background-color:{CssValue(business.SectionBackgroundColor, "#FFFFFF")}; color:{CssValue(business.BodyTextColor, "#4B5563")};";
+
+    private string GetServiceCardStyle() =>
+        $"background-color:{CssValue(business.ServiceCardBackgroundColor, "#FFFFFF")}; color:{CssValue(business.BodyTextColor, "#4B5563")};";
+
+    private string GetStaffCardStyle() =>
+        $"background-color:{CssValue(business.StaffCardBackgroundColor, "#FFFFFF")}; color:{CssValue(business.BodyTextColor, "#4B5563")};";
+
+    private string GetBookingPanelStyle() =>
+        $"background-color:{CssValue(business.BookingPanelBackgroundColor, "#FFFFFF")}; color:{CssValue(business.BodyTextColor, "#4B5563")};";
+
+    private string GetFooterStyle() =>
+        $"background-color:{CssValue(business.FooterBackgroundColor, "#151515")}; color:{CssValue(business.FooterTextColor, "#FFFFFF")};";
+
+    private string GetHeadingTextStyle() =>
+        $"color:{CssValue(business.HeadingTextColor, "#151515")};";
+
+    private string GetBodyTextStyle() =>
+        $"color:{CssValue(business.BodyTextColor, "#4B5563")};";
+
+    private string GetMutedTextStyle() =>
+        $"color:{CssValue(business.MutedTextColor, "#7A6F63")};";
+
+    private string GetPriceTextStyle() =>
+        $"color:{CssValue(business.PriceTextColor, "#151515")};";
+
+    private string GetSuccessStatusStyle() =>
+        $"background-color:{CssValue(business.SuccessColor, "#087443")};";
+
+    private string GetWarningStatusStyle() =>
+        $"background-color:{CssValue(business.WarningColor, "#B45309")};";
+
+    private string GetDangerStatusStyle() =>
+        $"background-color:{CssValue(business.DangerColor, "#B42318")};";
+
+    private string GetHeroStyle()
+    {
+        var heroTextColor = CssValue(business.HeroTextColor, "#FFFFFF");
+        var primaryColor = CssValue(business.PrimaryColor, "#151515");
+        var secondaryColor = CssValue(business.SecondaryColor, "#C9A46A");
+        var overlay = CssValue(business.HeroOverlayColor, "rgba(0,0,0,.55)");
+
+        if (string.IsNullOrWhiteSpace(business.CoverImageUrl))
+        {
+            return $"background-image:linear-gradient(135deg, {primaryColor}, {secondaryColor}); color:{heroTextColor};";
+        }
+
+        return $"background-image:linear-gradient({overlay}, {overlay}), url('{business.CoverImageUrl}'); background-position:center; background-size:cover; color:{heroTextColor};";
+    }
+
+    private sealed class WeeklyHoursModel
+    {
+        public WeeklyHoursModel(string label, DayOfWeek day, bool isOpen, TimeSpan open, TimeSpan close)
+        {
+            Label = label;
+            Day = day;
+            IsOpen = isOpen;
+            Open = open;
+            Close = close;
+            OpenText = open.ToString(@"hh\:mm");
+            CloseText = close.ToString(@"hh\:mm");
+        }
+
+        public string Label { get; set; }
+        public DayOfWeek Day { get; set; }
+        public bool IsOpen { get; set; }
+        public TimeSpan Open { get; set; }
+        public TimeSpan Close { get; set; }
+        public string OpenText { get; set; }
+        public string CloseText { get; set; }
     }
 }
