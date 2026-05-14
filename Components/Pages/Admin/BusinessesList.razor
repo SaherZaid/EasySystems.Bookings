@@ -1,0 +1,322 @@
+﻿@page "/admin/businesses"
+
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Access
+@using EasySystems.Bookings.Data.Entities
+@using EasySystems.Bookings.Data.Identity
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject BusinessAccessService BusinessAccessService
+@inject NavigationManager Navigation
+
+@attribute [Authorize]
+
+<PageTitle>Businesses | EasySystems</PageTitle>
+
+<AdminNavbar BusinessId="navbarBusinessId" />
+
+<div class="roles-page">
+    <div class="roles-shell">
+
+        <section class="businesses-top-hero">
+            <div>
+                <p class="roles-eyebrow">@heroLabel</p>
+                <h1>@heroTitle</h1>
+                <p>@heroDescription</p>
+            </div>
+        </section>
+
+        @if (isLoading)
+        {
+            <div class="roles-loading">
+                Loading business...
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="roles-empty">
+                <h2>Access denied</h2>
+                <p>@errorMessage</p>
+            </div>
+        }
+        else if (!businessCards.Any())
+        {
+            <div class="roles-empty">
+                <h2>No business found</h2>
+                <p>Your account is not connected to any active business.</p>
+            </div>
+        }
+        else
+        {
+            <section class="admin-business-grid">
+                @foreach (var item in businessCards)
+                {
+                    var business = item.Business;
+                    var permissions = item.Permissions;
+
+                    <article class="admin-business-card">
+
+                        <div class="admin-business-header">
+                            <div class="roles-avatar">
+                                @GetInitials(business.Name)
+                            </div>
+
+                            <div>
+                                <h2>@business.Name</h2>
+                                <p>@business.Slug</p>
+                            </div>
+                        </div>
+
+                        <div class="admin-business-actions-large">
+                            @if (permissions.HasAccess)
+                            {
+                                <a class="primary" href="/admin/businesses/@business.Id/overview">
+                                    Overview
+                                </a>
+                            }
+
+                            @if (permissions.CanManageServices)
+                            {
+                                <a href="/admin/businesses/@business.Id/services">
+                                    Services
+                                </a>
+                            }
+
+                            @if (permissions.CanManageStaff)
+                            {
+                                <a href="/admin/businesses/@business.Id/staff">
+                                    Staff
+                                </a>
+                            }
+
+                            @if (permissions.CanManageBookings)
+                            {
+                                <a href="/admin/businesses/@business.Id/bookings">
+                                    Bookings
+                                </a>
+                            }
+
+                            @if (permissions.CanManageCalendar)
+                            {
+                                <a href="/admin/businesses/@business.Id/calendar">
+                                    Calendar
+                                </a>
+                            }
+
+                            @if (permissions.IsPlatformSuperAdmin || permissions.Role == AppRoles.BusinessOwner || permissions.CanManageSettings)
+                            {
+                                <a href="/admin/businesses/@business.Id/roles">
+                                    Manage roles
+                                </a>
+                            }
+
+                            @if (permissions.CanManageSettings)
+                            {
+                                <a href="/admin/businesses/edit/@business.Id">
+                                    Settings
+                                </a>
+                            }
+                        </div>
+
+                        <div class="admin-business-meta">
+                            <div>
+                                <span>Type</span>
+                                <strong>@(string.IsNullOrWhiteSpace(business.BusinessType) ? "No type" : business.BusinessType)</strong>
+                            </div>
+
+                            <div>
+                                <span>Location</span>
+                                <strong>@GetLocation(business)</strong>
+                            </div>
+
+                            <div>
+                                <span>Working hours</span>
+                                <strong>
+                                    @business.OpeningTime.ToString(@"hh\:mm")
+                                    -
+                                    @business.ClosingTime.ToString(@"hh\:mm")
+                                </strong>
+                            </div>
+                        </div>
+
+                        <div class="admin-business-status">
+                            @if (business.IsActive)
+                            {
+                                <span class="roles-status-pill active">Active</span>
+                            }
+                            else
+                            {
+                                <span class="roles-status-pill muted">Inactive</span>
+                            }
+
+                            @if (business.AllowOnlineBookings)
+                            {
+                                <span class="roles-status-pill">Online bookings</span>
+                            }
+                            else
+                            {
+                                <span class="roles-status-pill muted">Online disabled</span>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(permissions.Role))
+                            {
+                                <span class="roles-status-pill muted">@permissions.Role</span>
+                            }
+                        </div>
+
+                    </article>
+                }
+            </section>
+        }
+
+    </div>
+</div>
+
+@code {
+    private bool isLoading = true;
+
+    private string? errorMessage;
+
+    private int? navbarBusinessId;
+
+    private string heroLabel = "Admin";
+    private string heroTitle = "Business workspace";
+    private string heroDescription = "Open the tools you have permission to use.";
+
+    private List<BusinessCardModel> businessCards = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var principal = authState.User;
+
+        if (principal.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/Account/Login", forceLoad: true);
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        if (principal.IsInRole(AppRoles.PlatformSuperAdmin))
+        {
+            heroLabel = "Platform admin";
+            heroTitle = "Businesses";
+            heroDescription = "Choose a business and manage its workspace.";
+
+            var businesses = await db.Businesses
+                .AsNoTracking()
+                .OrderByDescending(b => b.CreatedAt)
+                .ToListAsync();
+
+            businessCards = businesses
+                .Select(b => new BusinessCardModel
+                    {
+                        Business = b,
+                        Permissions = new BusinessPermissionResult
+                        {
+                            HasAccess = true,
+                            IsPlatformSuperAdmin = true,
+                            Role = AppRoles.PlatformSuperAdmin,
+                            CanManageServices = true,
+                            CanManageStaff = true,
+                            CanManageBookings = true,
+                            CanManageCalendar = true,
+                            CanManageSettings = true
+                        }
+                    })
+                .ToList();
+
+            isLoading = false;
+            return;
+        }
+
+        var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            errorMessage = "We could not identify your account.";
+            isLoading = false;
+            return;
+        }
+
+        var business = await db.BusinessUsers
+            .AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .Where(x => x.Business.IsActive)
+            .Select(x => x.Business)
+            .FirstOrDefaultAsync();
+
+        if (business is null)
+        {
+            errorMessage = "Your account is not connected to an active business.";
+            isLoading = false;
+            return;
+        }
+
+        var permissions = await BusinessAccessService
+            .GetPermissionsAsync(principal, business.Id);
+
+        if (!permissions.HasAccess)
+        {
+            errorMessage = "You do not have permission to access this business.";
+            isLoading = false;
+            return;
+        }
+
+        navbarBusinessId = business.Id;
+
+        heroLabel = "Business admin";
+        heroTitle = business.Name;
+        heroDescription = "Use the navigation or the buttons below to open your allowed tools.";
+
+        businessCards =
+        [
+            new BusinessCardModel
+            {
+                Business = business,
+                Permissions = permissions
+            }
+        ];
+
+        isLoading = false;
+    }
+
+    private static string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "EB";
+
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+
+        return name[0].ToString().ToUpper();
+    }
+
+    private static string GetLocation(Business business)
+    {
+        if (!string.IsNullOrWhiteSpace(business.City))
+            return business.City;
+
+        if (!string.IsNullOrWhiteSpace(business.Address))
+            return business.Address;
+
+        return "No location";
+    }
+
+    private sealed class BusinessCardModel
+    {
+        public Business Business { get; set; } = default!;
+
+        public BusinessPermissionResult Permissions { get; set; } = new();
+    }
+}

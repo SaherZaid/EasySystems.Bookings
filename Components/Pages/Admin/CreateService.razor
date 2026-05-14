@@ -1,0 +1,167 @@
+﻿@page "/admin/businesses/{BusinessId:int}/services/create"
+
+@using EasySystems.Bookings.Components.Admin
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.EntityFrameworkCore
+
+@inherits AdminBusinessPageBase
+
+@inject ApplicationDbContext Db
+
+
+<PageTitle>Create Service</PageTitle>
+
+<AdminNavbar BusinessId="BusinessId" />
+
+@if (!Permissions.HasAccess)
+{
+    <p>Checking access...</p>
+}
+else if (!Permissions.CanManageServices)
+{
+    <div class="alert alert-danger">
+        You do not have permission to create services.
+    </div>
+}
+else if (business is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1>Create Service</h1>
+
+            <p class="text-muted mb-0">
+                @business.Name —
+                @business.OpeningTime.ToString(@"hh\:mm")
+                to
+                @business.ClosingTime.ToString(@"hh\:mm")
+            </p>
+        </div>
+
+        <a class="btn btn-outline-secondary"
+           href="/admin/businesses/@business.Id/services">
+            Back
+        </a>
+    </div>
+
+    <EditForm Model="service" OnValidSubmit="CreateAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label class="form-label">Service name</label>
+            <InputText class="form-control" @bind-Value="service.Name" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Description</label>
+            <InputTextArea class="form-control" @bind-Value="service.Description" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Price</label>
+            <InputNumber class="form-control" @bind-Value="service.Price" />
+            <small class="text-muted">Example: 350</small>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Duration in minutes</label>
+            <InputNumber class="form-control" @bind-Value="service.DurationMinutes" />
+            <small class="text-muted">Example: 30, 45, 60</small>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Sort order</label>
+            <InputNumber class="form-control" @bind-Value="service.SortOrder" />
+            <small class="text-muted">Lower number appears first.</small>
+        </div>
+
+        <div class="form-check mb-4">
+            <InputCheckbox class="form-check-input" @bind-Value="service.IsActive" />
+            <label class="form-check-label">
+                Active
+            </label>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="alert alert-danger">
+                @errorMessage
+            </div>
+        }
+
+        <button class="btn btn-primary" type="submit">
+            Create Service
+        </button>
+    </EditForm>
+}
+
+@code {
+    private Business? business;
+
+    private Service service = new()
+        {
+            IsActive = true,
+            DurationMinutes = 30
+        };
+
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        if (!Permissions.HasAccess || !Permissions.CanManageServices)
+        {
+            return;
+        }
+
+        business = await Db.Businesses
+            .FirstOrDefaultAsync(b => b.Id == BusinessId);
+
+        if (business is null)
+        {
+            Navigation.NavigateTo("/admin/businesses");
+            return;
+        }
+
+        service.BusinessId = business.Id;
+    }
+
+    private async Task CreateAsync()
+    {
+        errorMessage = null;
+
+        service.Name = service.Name.Trim();
+
+        if (string.IsNullOrWhiteSpace(service.Name))
+        {
+            errorMessage = "Service name is required.";
+            return;
+        }
+
+        if (service.DurationMinutes <= 0)
+        {
+            errorMessage = "Duration must be greater than 0 minutes.";
+            return;
+        }
+
+        if (service.Price < 0)
+        {
+            errorMessage = "Price cannot be negative.";
+            return;
+        }
+
+        service.BusinessId = BusinessId;
+        service.CreatedAt = DateTime.UtcNow;
+
+        Db.Services.Add(service);
+        await Db.SaveChangesAsync();
+
+        Navigation.NavigateTo($"/admin/businesses/{BusinessId}/services");
+    }
+}

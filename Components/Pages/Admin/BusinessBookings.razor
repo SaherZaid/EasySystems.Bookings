@@ -1,0 +1,402 @@
+﻿@page "/admin/businesses/{BusinessId:int}/bookings"
+@rendermode InteractiveServer
+
+@using EasySystems.Bookings.Components.Admin
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.EntityFrameworkCore
+
+@inherits AdminBusinessPageBase
+
+@inject ApplicationDbContext Db
+
+<PageTitle>Bokningar | EasySystems</PageTitle>
+
+<AdminNavbar BusinessId="BusinessId" />
+
+@if (!Permissions.HasAccess)
+{
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-loading-card">Kontrollerar åtkomst...</div>
+        </div>
+    </div>
+}
+else if (!Permissions.CanManageBookings)
+{
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-alert danger">
+                Du har inte behörighet att hantera bokningar.
+            </div>
+        </div>
+    </div>
+}
+else if (business is null)
+{
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-loading-card">Laddar bokningar...</div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="admin-page bookings-admin-page">
+        <div class="admin-shell">
+
+            <section class="admin-hero">
+                <div>
+                    <p class="admin-eyebrow">Bokningar</p>
+                    <h1>@business.Name</h1>
+                    <p>@GetBusinessSubtitle()</p>
+                </div>
+
+                <div class="admin-hero-actions">
+                    <a class="admin-primary-btn" href="/admin/businesses/@BusinessId/bookings/create">
+                        + Skapa bokning
+                    </a>
+
+                    @if (Permissions.CanManageCalendar)
+                    {
+                        <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/calendar">
+                            Kalender
+                        </a>
+                    }
+
+                    <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/overview">
+                        Översikt
+                    </a>
+                </div>
+            </section>
+
+            <section class="booking-stat-grid">
+                <div class="booking-stat-card">
+                    <span>Totalt</span>
+                    <strong>@bookings.Count</strong>
+                    <p>Alla bokningar</p>
+                </div>
+
+                <div class="booking-stat-card">
+                    <span>Idag</span>
+                    <strong>@TodayCount</strong>
+                    <p>@DateTime.Today.ToString("yyyy-MM-dd")</p>
+                </div>
+
+                <div class="booking-stat-card">
+                    <span>Väntar</span>
+                    <strong>@PendingCount</strong>
+                    <p>Behöver hanteras</p>
+                </div>
+
+                <div class="booking-stat-card">
+                    <span>Betalda</span>
+                    <strong>@PaidCount</strong>
+                    <p>@PaidAmount.ToString("0.00") kr</p>
+                </div>
+            </section>
+
+            <section class="booking-toolbar">
+                <div class="booking-search">
+                    <label>Sök</label>
+                    <input @bind="searchText"
+                           @bind:event="oninput"
+                           placeholder="Kund, e-post, telefon, tjänst eller personal..." />
+                </div>
+
+                <div class="booking-filter">
+                    <label>Status</label>
+                    <select @bind="statusFilter">
+                        <option value="">Alla statusar</option>
+                        <option value="Pending">Väntar</option>
+                        <option value="Confirmed">Bekräftad</option>
+                        <option value="Cancelled">Avbokad</option>
+                    </select>
+                </div>
+
+                <div class="booking-filter">
+                    <label>Betalning</label>
+                    <select @bind="paymentFilter">
+                        <option value="">Alla betalningar</option>
+                        <option value="paid">Betald</option>
+                        <option value="unpaid">Obetald</option>
+                    </select>
+                </div>
+
+                <div class="booking-filter">
+                    <label>Tid</label>
+                    <select @bind="timeFilter">
+                        <option value="">Alla tider</option>
+                        <option value="today">Idag</option>
+                        <option value="upcoming">Kommande</option>
+                        <option value="past">Tidigare</option>
+                    </select>
+                </div>
+            </section>
+
+            @if (!FilteredBookings.Any())
+            {
+                <div class="admin-empty-card">
+                    <h2>Inga bokningar hittades</h2>
+                    <p>Prova att ändra filtren eller skapa en ny bokning.</p>
+
+                    <a class="admin-primary-btn" href="/admin/businesses/@BusinessId/bookings/create">
+                        Skapa bokning
+                    </a>
+                </div>
+            }
+            else
+            {
+                <section class="booking-card-list">
+                    @foreach (var booking in FilteredBookings)
+                    {
+                        <article class="booking-card">
+                            <div class="booking-card-main">
+                                <div class="booking-date-box">
+                                    <strong>@booking.StartTime.ToString("dd")</strong>
+                                    <span>@booking.StartTime.ToString("MMM", new System.Globalization.CultureInfo("sv-SE"))</span>
+                                </div>
+
+                                <div class="booking-main-info">
+                                    <div class="booking-card-title-row">
+                                        <div>
+                                            <h2>@booking.CustomerName</h2>
+                                            <p>
+                                                @booking.StartTime.ToString("yyyy-MM-dd")
+                                                ·
+                                                @booking.StartTime.ToString("HH:mm")
+                                                -
+                                                @booking.EndTime.ToString("HH:mm")
+                                            </p>
+                                        </div>
+
+                                        <div class="booking-badges">
+                                            <span class="@GetStatusClass(booking.Status)">
+                                                @TranslateStatus(booking.Status)
+                                            </span>
+
+                                            <span class="@GetPaymentClass(booking.IsPaid)">
+                                                @(booking.IsPaid ? "Betald" : "Obetald")
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div class="booking-detail-grid">
+                                        <div>
+                                            <span>Tjänst</span>
+                                            <strong>@booking.Service.Name</strong>
+                                            <small>
+                                                @booking.Service.DurationMinutes min · @booking.Service.Price.ToString("0.00") kr
+                                            </small>
+                                        </div>
+
+                                        <div>
+                                            <span>Personal</span>
+                                            <strong>@booking.StaffMember.FullName</strong>
+                                            <small>
+                                                @(string.IsNullOrWhiteSpace(booking.StaffMember.Specialization)
+                                                    ? "Ingen specialisering"
+                                                    : booking.StaffMember.Specialization)
+                                            </small>
+                                        </div>
+
+                                        <div>
+                                            <span>Kontakt</span>
+                                            <strong>@GetContactMain(booking)</strong>
+                                            <small>@GetContactSub(booking)</small>
+                                        </div>
+
+                                        <div>
+                                            <span>Betalning</span>
+                                            <strong>
+                                                @(booking.IsPaid ? $"{booking.PaidAmount:0.00} kr" : "Ej betald")
+                                            </strong>
+                                            <small>
+                                                @(string.IsNullOrWhiteSpace(booking.PaymentMethod)
+                                                    ? "Ingen betalningsmetod"
+                                                    : booking.PaymentMethod)
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                    @if (!string.IsNullOrWhiteSpace(booking.Notes))
+                                    {
+                                        <div class="booking-note">
+                                            @booking.Notes
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="booking-card-actions">
+                                <a href="/admin/businesses/@BusinessId/bookings/edit/@booking.Id">
+                                    Redigera bokning
+                                </a>
+                            </div>
+                        </article>
+                    }
+                </section>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private Business? business;
+    private List<Booking> bookings = [];
+
+    private string searchText = "";
+    private string statusFilter = "";
+    private string paymentFilter = "";
+    private string timeFilter = "";
+
+    private static readonly System.Globalization.CultureInfo SwedishCulture =
+        new("sv-SE");
+
+    private IEnumerable<Booking> FilteredBookings =>
+        bookings
+            .Where(MatchesSearch)
+            .Where(MatchesStatus)
+            .Where(MatchesPayment)
+            .Where(MatchesTime)
+            .OrderByDescending(b => b.StartTime);
+
+    private int TodayCount =>
+        bookings.Count(b => b.StartTime.Date == DateTime.Today);
+
+    private int PendingCount =>
+        bookings.Count(b => string.Equals(b.Status, "Pending", StringComparison.OrdinalIgnoreCase));
+
+    private int PaidCount =>
+        bookings.Count(b => b.IsPaid);
+
+    private decimal PaidAmount =>
+        bookings.Where(b => b.IsPaid).Sum(b => b.PaidAmount);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        if (!Permissions.HasAccess || !Permissions.CanManageBookings)
+            return;
+
+        business = await Db.Businesses
+            .FirstOrDefaultAsync(b => b.Id == BusinessId);
+
+        if (business is null)
+            return;
+
+        bookings = await Db.Bookings
+            .Include(b => b.Service)
+            .Include(b => b.StaffMember)
+            .Where(b => b.BusinessId == BusinessId)
+            .OrderByDescending(b => b.StartTime)
+            .ToListAsync();
+    }
+
+    private bool MatchesSearch(Booking booking)
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+            return true;
+
+        var term = searchText.Trim();
+
+        return booking.CustomerName.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || (booking.CustomerEmail?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (booking.CustomerPhone?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+            || booking.Service.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || booking.StaffMember.FullName.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || (booking.Notes?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false);
+    }
+
+    private bool MatchesStatus(Booking booking)
+    {
+        if (string.IsNullOrWhiteSpace(statusFilter))
+            return true;
+
+        return string.Equals(booking.Status, statusFilter, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool MatchesPayment(Booking booking)
+    {
+        return paymentFilter switch
+        {
+            "paid" => booking.IsPaid,
+            "unpaid" => !booking.IsPaid,
+            _ => true
+        };
+    }
+
+    private bool MatchesTime(Booking booking)
+    {
+        var today = DateTime.Today;
+
+        return timeFilter switch
+        {
+            "today" => booking.StartTime.Date == today,
+            "upcoming" => booking.StartTime >= DateTime.Now,
+            "past" => booking.StartTime < DateTime.Now,
+            _ => true
+        };
+    }
+
+    private string GetBusinessSubtitle()
+    {
+        var type = string.IsNullOrWhiteSpace(business?.BusinessType)
+            ? "Bokningsverksamhet"
+            : business.BusinessType;
+
+        return $"{type} · Öppet {business!.OpeningTime:hh\\:mm} till {business.ClosingTime:hh\\:mm}";
+    }
+
+    private static string GetStatusClass(string status)
+    {
+        return status switch
+        {
+            "Confirmed" => "booking-pill success",
+            "Pending" => "booking-pill warning",
+            "Cancelled" => "booking-pill danger",
+            _ => "booking-pill muted"
+        };
+    }
+
+    private static string TranslateStatus(string status)
+    {
+        return status switch
+        {
+            "Confirmed" => "Bekräftad",
+            "Pending" => "Väntar",
+            "Cancelled" => "Avbokad",
+            _ => status
+        };
+    }
+
+    private static string GetPaymentClass(bool isPaid)
+    {
+        return isPaid
+            ? "booking-pill success"
+            : "booking-pill neutral";
+    }
+
+    private static string GetContactMain(Booking booking)
+    {
+        if (!string.IsNullOrWhiteSpace(booking.CustomerEmail))
+            return booking.CustomerEmail;
+
+        if (!string.IsNullOrWhiteSpace(booking.CustomerPhone))
+            return booking.CustomerPhone;
+
+        return "Ingen kontakt";
+    }
+
+    private static string GetContactSub(Booking booking)
+    {
+        if (!string.IsNullOrWhiteSpace(booking.CustomerEmail) &&
+            !string.IsNullOrWhiteSpace(booking.CustomerPhone))
+        {
+            return booking.CustomerPhone;
+        }
+
+        return "Kunduppgifter";
+    }
+}

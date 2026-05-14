@@ -1,0 +1,308 @@
+﻿@page "/admin/businesses/{BusinessId:int}/bookings/create"
+
+@using EasySystems.Bookings.Components.Admin
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.EntityFrameworkCore
+
+@inherits AdminBusinessPageBase
+
+@inject ApplicationDbContext Db
+
+<PageTitle>Create Booking</PageTitle>
+
+<AdminNavbar BusinessId="BusinessId" />
+
+@if (!Permissions.HasAccess)
+{
+    <p>Checking access...</p>
+}
+else if (!Permissions.CanManageBookings)
+{
+    <div class="alert alert-danger">
+        You do not have permission to create bookings.
+    </div>
+}
+else if (business is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1>Create Booking</h1>
+
+            <p class="text-muted mb-0">
+                @business.Name —
+                Open @business.OpeningTime.ToString(@"hh\:mm")
+                to @business.ClosingTime.ToString(@"hh\:mm")
+            </p>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+            @if (Permissions.CanManageCalendar)
+            {
+                <a class="btn btn-outline-info"
+                   href="/admin/businesses/@BusinessId/calendar">
+                    Calendar
+                </a>
+            }
+
+            <a class="btn btn-outline-secondary"
+               href="/admin/businesses/@BusinessId/bookings">
+                Back
+            </a>
+        </div>
+    </div>
+
+    @if (!services.Any())
+    {
+        <div class="alert alert-warning">
+            This business has no active services. Create an active service before creating bookings.
+        </div>
+    }
+    else if (!staffMembers.Any())
+    {
+        <div class="alert alert-warning">
+            This business has no active staff members. Add an active staff member before creating bookings.
+        </div>
+    }
+    else
+    {
+        <EditForm Model="booking" OnValidSubmit="CreateAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+
+                    <div class="mb-3">
+                        <label class="form-label">Customer name</label>
+                        <InputText class="form-control" @bind-Value="booking.CustomerName" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Customer email</label>
+                        <InputText class="form-control" @bind-Value="booking.CustomerEmail" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Customer phone</label>
+                        <InputText class="form-control" @bind-Value="booking.CustomerPhone" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Service</label>
+                        <InputSelect class="form-select" @bind-Value="booking.ServiceId">
+                            <option value="0">Select service</option>
+
+                            @foreach (var service in services)
+                            {
+                                <option value="@service.Id">
+                                    @service.Name — @service.DurationMinutes min — @service.Price.ToString("0.00") kr
+                                </option>
+                            }
+                        </InputSelect>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Staff member</label>
+                        <InputSelect class="form-select" @bind-Value="booking.StaffMemberId">
+                            <option value="0">Select staff member</option>
+
+                            @foreach (var staff in staffMembers)
+                            {
+                                <option value="@staff.Id">
+                                    @staff.FullName
+                                    @if (!string.IsNullOrWhiteSpace(staff.Specialization))
+                                    {
+                                        @($" — {staff.Specialization}")
+                                    }
+                                </option>
+                            }
+                        </InputSelect>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Booking date</label>
+                            <InputDate class="form-control" @bind-Value="bookingDate" />
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Booking time</label>
+                            <InputText type="time"
+                                       class="form-control"
+                                       @bind-Value="bookingTimeString" />
+                            <small class="text-muted">
+                                Working hours: @business.OpeningTime.ToString(@"hh\:mm") - @business.ClosingTime.ToString(@"hh\:mm")
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <InputTextArea class="form-control"
+                                       rows="4"
+                                       @bind-Value="booking.Notes" />
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(errorMessage))
+                    {
+                        <div class="alert alert-danger">
+                            @errorMessage
+                        </div>
+                    }
+
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-primary" type="submit">
+                            Create Booking
+                        </button>
+
+                        <a class="btn btn-outline-dark"
+                           href="/admin/businesses/@BusinessId/bookings">
+                            Cancel
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+        </EditForm>
+    }
+}
+
+@code {
+    private Business? business;
+
+    private Booking booking = new()
+        {
+            Status = "Confirmed"
+        };
+
+    private List<Service> services = [];
+    private List<StaffMember> staffMembers = [];
+    private DateTime bookingDate = DateTime.Today;
+    private TimeSpan bookingTime = new(10, 0, 0);
+    private string? errorMessage;
+
+    private string bookingTimeString
+    {
+        get => bookingTime.ToString(@"hh\:mm");
+        set
+        {
+            if (TimeSpan.TryParse(value, out var time))
+            {
+                bookingTime = time;
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        if (!Permissions.HasAccess || !Permissions.CanManageBookings)
+        {
+            return;
+        }
+
+        business = await Db.Businesses
+            .FirstOrDefaultAsync(b => b.Id == BusinessId);
+
+        if (business is null)
+        {
+            Navigation.NavigateTo("/admin/businesses");
+            return;
+        }
+
+        services = await Db.Services
+            .Where(s =>
+                s.BusinessId == BusinessId &&
+                s.IsActive)
+            .OrderBy(s => s.SortOrder)
+            .ThenBy(s => s.Name)
+            .ToListAsync();
+
+        staffMembers = await Db.StaffMembers
+            .Where(s =>
+                s.BusinessId == BusinessId &&
+                s.IsActive)
+            .OrderBy(s => s.SortOrder)
+            .ThenBy(s => s.FullName)
+            .ToListAsync();
+
+        booking.BusinessId = BusinessId;
+    }
+
+    private async Task CreateAsync()
+    {
+        errorMessage = null;
+
+        if (business is null)
+        {
+            return;
+        }
+
+        booking.CustomerName = booking.CustomerName.Trim();
+
+        if (string.IsNullOrWhiteSpace(booking.CustomerName))
+        {
+            errorMessage = "Customer name is required.";
+            return;
+        }
+
+        var service = services
+            .FirstOrDefault(s => s.Id == booking.ServiceId);
+
+        if (service is null)
+        {
+            errorMessage = "Please select a service.";
+            return;
+        }
+
+        var staff = staffMembers
+            .FirstOrDefault(s => s.Id == booking.StaffMemberId);
+
+        if (staff is null)
+        {
+            errorMessage = "Please select a staff member.";
+            return;
+        }
+
+        booking.BusinessId = BusinessId;
+        booking.StartTime = bookingDate.Date.Add(bookingTime);
+        booking.EndTime = booking.StartTime.AddMinutes(service.DurationMinutes);
+        booking.CreatedAt = DateTime.UtcNow;
+
+        if (booking.StartTime.TimeOfDay < business.OpeningTime ||
+            booking.EndTime.TimeOfDay > business.ClosingTime)
+        {
+            errorMessage =
+                $"Booking must be within business hours: {business.OpeningTime:hh\\:mm} - {business.ClosingTime:hh\\:mm}.";
+
+            return;
+        }
+
+        var hasConflict = await Db.Bookings
+            .AnyAsync(b =>
+                b.BusinessId == BusinessId &&
+                b.StaffMemberId == booking.StaffMemberId &&
+                b.Status != "Cancelled" &&
+                booking.StartTime < b.EndTime &&
+                booking.EndTime > b.StartTime);
+
+        if (hasConflict)
+        {
+            errorMessage =
+                "This staff member already has another booking during this time.";
+
+            return;
+        }
+
+        Db.Bookings.Add(booking);
+        await Db.SaveChangesAsync();
+
+        Navigation.NavigateTo($"/admin/businesses/{BusinessId}/bookings");
+    }
+}

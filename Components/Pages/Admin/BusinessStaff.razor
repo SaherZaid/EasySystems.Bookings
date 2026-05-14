@@ -1,0 +1,210 @@
+﻿@page "/admin/businesses/{BusinessId:int}/staff"
+
+@using EasySystems.Bookings.Components.Admin
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.EntityFrameworkCore
+
+@inherits AdminBusinessPageBase
+
+@inject ApplicationDbContext Db
+
+<PageTitle>Business Staff</PageTitle>
+
+<AdminNavbar BusinessId="BusinessId" />
+
+@if (!Permissions.HasAccess)
+{
+    <p>Checking access...</p>
+}
+else if (!Permissions.CanManageStaff)
+{
+    <div class="alert alert-danger">
+        You do not have permission to manage staff.
+    </div>
+}
+else if (business is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+            <h1>@business.Name - Staff</h1>
+
+            <p class="text-muted mb-0">
+                @business.BusinessType —
+                Open @business.OpeningTime.ToString(@"hh\:mm")
+                to @business.ClosingTime.ToString(@"hh\:mm")
+            </p>
+        </div>
+
+        <a class="btn btn-primary"
+           href="/admin/businesses/@business.Id/staff/create">
+            Add Staff Member
+        </a>
+
+    </div>
+
+    @if (!staffMembers.Any())
+    {
+        <div class="alert alert-info">
+            No staff members found.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Specialization</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Online</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var staff in staffMembers)
+                    {
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">
+                                    @staff.FullName
+                                </div>
+
+                                @if (!string.IsNullOrWhiteSpace(staff.Bio))
+                                {
+                                    <small class="text-muted">
+                                        @staff.Bio
+                                    </small>
+                                }
+                            </td>
+
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(staff.Specialization))
+                                {
+                                    @staff.Specialization
+                                }
+                                else
+                                {
+                                    <span class="text-muted">
+                                        No specialization
+                                    </span>
+                                }
+                            </td>
+
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(staff.Email))
+                                {
+                                    @staff.Email
+                                }
+                                else
+                                {
+                                    <span class="text-muted">
+                                        No email
+                                    </span>
+                                }
+                            </td>
+
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(staff.Phone))
+                                {
+                                    @staff.Phone
+                                }
+                                else
+                                {
+                                    <span class="text-muted">
+                                        No phone
+                                    </span>
+                                }
+                            </td>
+
+                            <td>
+                                @if (staff.AllowOnlineBookings)
+                                {
+                                    <span class="badge bg-info text-dark">
+                                        Online
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-light text-dark border">
+                                        Hidden
+                                    </span>
+                                }
+                            </td>
+
+                            <td>
+                                @if (staff.IsActive)
+                                {
+                                    <span class="badge bg-success">
+                                        Active
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">
+                                        Inactive
+                                    </span>
+                                }
+                            </td>
+
+                            <td>
+                                @staff.CreatedAt
+                                .ToLocalTime()
+                                .ToString("yyyy-MM-dd HH:mm")
+                            </td>
+
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary"
+                                   href="/admin/businesses/@BusinessId/staff/edit/@staff.Id">
+                                    Edit
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private Business? business;
+
+    private List<StaffMember> staffMembers = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        if (!Permissions.HasAccess || !Permissions.CanManageStaff)
+        {
+            return;
+        }
+
+        business = await Db.Businesses
+            .FirstOrDefaultAsync(b => b.Id == BusinessId);
+
+        if (business is null)
+        {
+            return;
+        }
+
+        staffMembers = await Db.StaffMembers
+            .Where(s => s.BusinessId == BusinessId)
+            .OrderBy(s => s.SortOrder)
+            .ThenBy(s => s.FullName)
+            .ToListAsync();
+    }
+}

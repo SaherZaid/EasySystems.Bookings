@@ -1,0 +1,193 @@
+﻿@page "/admin/businesses/{BusinessId:int}/staff/edit/{Id:int}"
+
+@using EasySystems.Bookings.Components.Admin
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.EntityFrameworkCore
+
+@inherits AdminBusinessPageBase
+
+@inject ApplicationDbContext Db
+
+<PageTitle>Edit Staff Member</PageTitle>
+
+<AdminNavbar BusinessId="BusinessId" />
+
+@if (!Permissions.HasAccess)
+{
+    <p>Checking access...</p>
+}
+else if (!Permissions.CanManageStaff)
+{
+    <div class="alert alert-danger">
+        You do not have permission to manage staff.
+    </div>
+}
+else if (staffMember is null || business is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+            <h1>Edit Staff Member</h1>
+
+            <p class="text-muted mb-0">
+                @business.Name —
+                @business.OpeningTime.ToString(@"hh\:mm")
+                to
+                @business.ClosingTime.ToString(@"hh\:mm")
+            </p>
+        </div>
+
+        <a class="btn btn-outline-secondary"
+           href="/admin/businesses/@BusinessId/staff">
+            Back
+        </a>
+
+    </div>
+
+    <EditForm Model="staffMember" OnValidSubmit="SaveAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+
+                <div class="mb-3">
+                    <label class="form-label">Full name</label>
+                    <InputText class="form-control" @bind-Value="staffMember.FullName" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <InputText class="form-control" @bind-Value="staffMember.Email" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Phone</label>
+                    <InputText class="form-control" @bind-Value="staffMember.Phone" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Specialization</label>
+                    <InputText class="form-control" @bind-Value="staffMember.Specialization" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Bio</label>
+                    <InputTextArea class="form-control"
+                                   rows="4"
+                                   @bind-Value="staffMember.Bio" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Image URL</label>
+                    <InputText class="form-control" @bind-Value="staffMember.ImageUrl" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Sort order</label>
+                    <InputNumber class="form-control" @bind-Value="staffMember.SortOrder" />
+                </div>
+
+                <div class="form-check mb-3">
+                    <InputCheckbox class="form-check-input" @bind-Value="staffMember.AllowOnlineBookings" />
+                    <label class="form-check-label">
+                        Allow online bookings
+                    </label>
+                </div>
+
+                <div class="form-check mb-4">
+                    <InputCheckbox class="form-check-input" @bind-Value="staffMember.IsActive" />
+                    <label class="form-check-label">
+                        Active
+                    </label>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(errorMessage))
+                {
+                    <div class="alert alert-danger">
+                        @errorMessage
+                    </div>
+                }
+
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-primary" type="submit">
+                        Save Changes
+                    </button>
+
+                    <a class="btn btn-outline-dark"
+                       href="/admin/businesses/@BusinessId/staff">
+                        Cancel
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private StaffMember? staffMember;
+    private Business? business;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        if (!Permissions.HasAccess || !Permissions.CanManageStaff)
+        {
+            return;
+        }
+
+        business = await Db.Businesses
+            .FirstOrDefaultAsync(b => b.Id == BusinessId);
+
+        if (business is null)
+        {
+            Navigation.NavigateTo("/admin/businesses");
+            return;
+        }
+
+        staffMember = await Db.StaffMembers
+            .FirstOrDefaultAsync(s =>
+                s.Id == Id &&
+                s.BusinessId == BusinessId);
+
+        if (staffMember is null)
+        {
+            Navigation.NavigateTo($"/admin/businesses/{BusinessId}/staff");
+            return;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        errorMessage = null;
+
+        if (staffMember is null)
+        {
+            return;
+        }
+
+        staffMember.FullName = staffMember.FullName.Trim();
+        staffMember.UpdatedAt = DateTime.UtcNow;
+
+        if (string.IsNullOrWhiteSpace(staffMember.FullName))
+        {
+            errorMessage = "Full name is required.";
+            return;
+        }
+
+        await Db.SaveChangesAsync();
+
+        Navigation.NavigateTo($"/admin/businesses/{BusinessId}/staff");
+    }
+}

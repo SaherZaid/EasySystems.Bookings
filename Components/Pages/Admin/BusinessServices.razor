@@ -1,0 +1,169 @@
+﻿@page "/admin/businesses/{BusinessId:int}/services"
+
+@using EasySystems.Bookings.Components.Admin
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.EntityFrameworkCore
+
+@inherits AdminBusinessPageBase
+
+@inject ApplicationDbContext Db
+
+<PageTitle>Business Services</PageTitle>
+
+<AdminNavbar BusinessId="BusinessId" />
+
+@if (!Permissions.HasAccess)
+{
+    <p>Checking access...</p>
+}
+else if (!Permissions.CanManageServices)
+{
+    <div class="alert alert-danger">
+        You do not have permission to manage services.
+    </div>
+}
+else if (business is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+            <h1>@business.Name - Services</h1>
+
+            <p class="text-muted mb-0">
+                @business.BusinessType —
+                Open @business.OpeningTime.ToString(@"hh\:mm")
+                to @business.ClosingTime.ToString(@"hh\:mm")
+            </p>
+        </div>
+
+        <a class="btn btn-primary"
+           href="/admin/businesses/@business.Id/services/create">
+            Create Service
+        </a>
+
+    </div>
+
+    @if (!services.Any())
+    {
+        <div class="alert alert-info">
+            No services found.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Duration</th>
+                        <th>Price</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var service in services)
+                    {
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">
+                                    @service.Name
+                                </div>
+                            </td>
+
+                            <td style="max-width: 320px;">
+                                @if (!string.IsNullOrWhiteSpace(service.Description))
+                                {
+                                    @service.Description
+                                }
+                                else
+                                {
+                                    <span class="text-muted">
+                                        No description
+                                    </span>
+                                }
+                            </td>
+
+                            <td>
+                                @service.DurationMinutes min
+                            </td>
+
+                            <td>
+                                @service.Price.ToString("0.00") kr
+                            </td>
+
+                            <td>
+                                @if (service.IsActive)
+                                {
+                                    <span class="badge bg-success">
+                                        Active
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">
+                                        Inactive
+                                    </span>
+                                }
+                            </td>
+
+                            <td>
+                                @service.CreatedAt
+                                .ToLocalTime()
+                                .ToString("yyyy-MM-dd HH:mm")
+                            </td>
+
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary"
+                                   href="/admin/businesses/@BusinessId/services/edit/@service.Id">
+                                    Edit
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private Business? business;
+
+    private List<Service> services = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        if (!Permissions.HasAccess || !Permissions.CanManageServices)
+        {
+            return;
+        }
+
+        business = await Db.Businesses
+            .FirstOrDefaultAsync(b => b.Id == BusinessId);
+
+        if (business is null)
+        {
+            return;
+        }
+
+        services = await Db.Services
+            .Where(s => s.BusinessId == BusinessId)
+            .OrderBy(s => s.SortOrder)
+            .ThenBy(s => s.Name)
+            .ToListAsync();
+    }
+}

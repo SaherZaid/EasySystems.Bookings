@@ -1,0 +1,446 @@
+﻿@page "/"
+
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.EntityFrameworkCore
+
+@inject ApplicationDbContext Db
+
+<PageTitle>@pageTitle</PageTitle>
+
+@if (isLoading)
+{
+    <div class="public-page">
+        <div class="public-loading">Loading...</div>
+    </div>
+}
+else if (business is null)
+{
+    <div class="public-page">
+        <div class="alert alert-warning">
+            Business not found or not available for online bookings.
+        </div>
+    </div>
+}
+else
+{
+    <div class="public-page">
+
+        <section class="public-business-hero">
+            @if (!string.IsNullOrWhiteSpace(business.CoverImageUrl))
+            {
+                <img class="public-cover" src="@business.CoverImageUrl" alt="@business.Name" />
+            }
+
+            <div class="public-business-hero-content">
+                @if (!string.IsNullOrWhiteSpace(business.LogoUrl))
+                {
+                    <img class="public-logo" src="@business.LogoUrl" alt="@business.Name logo" />
+                }
+
+                @if (!string.IsNullOrWhiteSpace(business.BusinessType))
+                {
+                    <span class="public-pill">@business.BusinessType</span>
+                }
+
+                <h1>@business.Name</h1>
+
+                @if (!string.IsNullOrWhiteSpace(business.Description))
+                {
+                    <p>@business.Description</p>
+                }
+
+                <div class="public-meta">
+                    <span>
+                        Open @business.OpeningTime.ToString(@"hh\:mm") - @business.ClosingTime.ToString(@"hh\:mm")
+                    </span>
+
+                    @if (!string.IsNullOrWhiteSpace(business.City))
+                    {
+                        <span>@business.City</span>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(business.Phone))
+                    {
+                        <span>@business.Phone</span>
+                    }
+                </div>
+            </div>
+        </section>
+
+        <div class="public-booking-layout">
+
+            <div class="public-card">
+                <h2>Book an appointment</h2>
+
+                @if (!services.Any())
+                {
+                    <div class="alert alert-warning">
+                        This business has no bookable services right now.
+                    </div>
+                }
+                else if (!staffMembers.Any())
+                {
+                    <div class="alert alert-warning">
+                        This business has no available staff right now.
+                    </div>
+                }
+                else
+                {
+                    <EditForm Model="booking" OnValidSubmit="CreateBookingAsync">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="mb-3">
+                            <label class="form-label">Your name</label>
+                            <InputText class="form-control" @bind-Value="booking.CustomerName" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <InputText class="form-control" @bind-Value="booking.CustomerEmail" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Phone</label>
+                            <InputText class="form-control" @bind-Value="booking.CustomerPhone" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Service</label>
+                            <InputSelect class="form-select" @bind-Value="booking.ServiceId">
+                                <option value="0">Select service</option>
+
+                                @foreach (var service in services)
+                                {
+                                    <option value="@service.Id">
+                                        @service.Name — @service.DurationMinutes min — @service.Price.ToString("0.00") kr
+                                    </option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Staff member</label>
+                            <InputSelect class="form-select" @bind-Value="booking.StaffMemberId">
+                                <option value="0">Select staff member</option>
+
+                                @foreach (var staff in staffMembers)
+                                {
+                                    <option value="@staff.Id">
+                                        @staff.FullName
+                                        @if (!string.IsNullOrWhiteSpace(staff.Specialization))
+                                        {
+                                            @($" — {staff.Specialization}")
+                                        }
+                                    </option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Date</label>
+                                <InputDate class="form-control" @bind-Value="bookingDate" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Time</label>
+                                <InputText type="time"
+                                           class="form-control"
+                                           @bind-Value="bookingTimeString" />
+
+                                <small class="text-muted">
+                                    Working hours: @business.OpeningTime.ToString(@"hh\:mm") - @business.ClosingTime.ToString(@"hh\:mm")
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <InputTextArea class="form-control" rows="3" @bind-Value="booking.Notes" />
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(errorMessage))
+                        {
+                            <div class="alert alert-danger">
+                                @errorMessage
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(successMessage))
+                        {
+                            <div class="alert alert-success">
+                                @successMessage
+                            </div>
+                        }
+
+                        <button class="btn btn-primary w-100" type="submit">
+                            Request booking
+                        </button>
+                    </EditForm>
+                }
+            </div>
+
+            <div class="public-card">
+                <h2>Services</h2>
+
+                @if (!services.Any())
+                {
+                    <p class="text-muted">
+                        No services available.
+                    </p>
+                }
+                else
+                {
+                    <div class="public-service-list">
+                        @foreach (var service in services)
+                        {
+                            <div class="public-service-item">
+                                <div>
+                                    <strong>@service.Name</strong>
+
+                                    @if (!string.IsNullOrWhiteSpace(service.Description))
+                                    {
+                                        <p>@service.Description</p>
+                                    }
+                                </div>
+
+                                <span>
+                                    @service.DurationMinutes min · @service.Price.ToString("0.00") kr
+                                </span>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <hr />
+
+                <h2>Staff</h2>
+
+                @if (!staffMembers.Any())
+                {
+                    <p class="text-muted">
+                        No staff available.
+                    </p>
+                }
+                else
+                {
+                    <div class="public-staff-list">
+                        @foreach (var staff in staffMembers)
+                        {
+                            <div class="public-staff-item">
+                                @if (!string.IsNullOrWhiteSpace(staff.ImageUrl))
+                                {
+                                    <img src="@staff.ImageUrl" alt="@staff.FullName" />
+                                }
+
+                                <div>
+                                    <strong>@staff.FullName</strong>
+
+                                    @if (!string.IsNullOrWhiteSpace(staff.Specialization))
+                                    {
+                                        <small>@staff.Specialization</small>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+
+    private string pageTitle = "EasyBookings";
+
+    private Business? business;
+
+    private List<Service> services = [];
+
+    private List<StaffMember> staffMembers = [];
+
+    private Booking booking = new()
+        {
+            Status = "Pending"
+        };
+
+    private DateTime bookingDate = DateTime.Today;
+
+    private TimeSpan bookingTime = new(10, 0, 0);
+
+    private string? errorMessage;
+
+    private string? successMessage;
+
+    private string bookingTimeString
+    {
+        get => bookingTime.ToString(@"hh\:mm");
+
+        set
+        {
+            if (TimeSpan.TryParse(value, out var time))
+            {
+                bookingTime = time;
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+
+        errorMessage = null;
+
+        successMessage = null;
+
+        business = await Db.Businesses
+            .FirstOrDefaultAsync(b =>
+                b.IsActive &&
+                b.AllowOnlineBookings);
+
+        if (business is null)
+        {
+            pageTitle = "Business not found";
+
+            isLoading = false;
+
+            return;
+        }
+
+        pageTitle = business.Name;
+
+        services = await Db.Services
+            .Where(s =>
+                s.BusinessId == business.Id &&
+                s.IsActive)
+            .OrderBy(s => s.SortOrder)
+            .ThenBy(s => s.Name)
+            .ToListAsync();
+
+        staffMembers = await Db.StaffMembers
+            .Where(s =>
+                s.BusinessId == business.Id &&
+                s.IsActive &&
+                s.AllowOnlineBookings)
+            .OrderBy(s => s.SortOrder)
+            .ThenBy(s => s.FullName)
+            .ToListAsync();
+
+        booking = new Booking
+            {
+                BusinessId = business.Id,
+                Status = "Pending"
+            };
+
+        isLoading = false;
+    }
+
+    private async Task CreateBookingAsync()
+    {
+        errorMessage = null;
+
+        successMessage = null;
+
+        if (business is null)
+        {
+            errorMessage = "Business not found.";
+
+            return;
+        }
+
+        booking.CustomerName = booking.CustomerName.Trim();
+
+        if (string.IsNullOrWhiteSpace(booking.CustomerName))
+        {
+            errorMessage = "Please enter your name.";
+
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(booking.CustomerEmail) &&
+            string.IsNullOrWhiteSpace(booking.CustomerPhone))
+        {
+            errorMessage = "Please enter your email or phone number.";
+
+            return;
+        }
+
+        var service = services
+            .FirstOrDefault(s => s.Id == booking.ServiceId);
+
+        if (service is null)
+        {
+            errorMessage = "Please select a service.";
+
+            return;
+        }
+
+        var staff = staffMembers
+            .FirstOrDefault(s => s.Id == booking.StaffMemberId);
+
+        if (staff is null)
+        {
+            errorMessage = "Please select a staff member.";
+
+            return;
+        }
+
+        booking.BusinessId = business.Id;
+
+        booking.StartTime = bookingDate.Date.Add(bookingTime);
+
+        booking.EndTime = booking.StartTime.AddMinutes(service.DurationMinutes);
+
+        booking.Status = "Pending";
+
+        booking.CreatedAt = DateTime.UtcNow;
+
+        if (booking.StartTime < DateTime.Now)
+        {
+            errorMessage = "Please select a future time.";
+
+            return;
+        }
+
+        if (booking.StartTime.TimeOfDay < business.OpeningTime ||
+            booking.EndTime.TimeOfDay > business.ClosingTime)
+        {
+            errorMessage =
+                $"Booking must be within working hours: {business.OpeningTime:hh\\:mm} - {business.ClosingTime:hh\\:mm}.";
+
+            return;
+        }
+
+        var hasConflict = await Db.Bookings
+            .AnyAsync(b =>
+                b.BusinessId == business.Id &&
+                b.StaffMemberId == booking.StaffMemberId &&
+                b.Status != "Cancelled" &&
+                booking.StartTime < b.EndTime &&
+                booking.EndTime > b.StartTime);
+
+        if (hasConflict)
+        {
+            errorMessage = "This time is already booked. Please choose another time.";
+
+            return;
+        }
+
+        Db.Bookings.Add(booking);
+
+        await Db.SaveChangesAsync();
+
+        successMessage = "Your booking request has been created successfully.";
+
+        booking = new Booking
+            {
+                BusinessId = business.Id,
+                Status = "Pending"
+            };
+    }
+}

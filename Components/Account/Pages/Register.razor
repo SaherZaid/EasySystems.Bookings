@@ -1,0 +1,248 @@
+﻿@page "/Account/Register"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using EasySystems.Bookings.Data.Entities
+@using EasySystems.Bookings.Data.Identity
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IUserStore<ApplicationUser> UserStore
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IEmailSender<ApplicationUser> EmailSender
+@inject ILogger<Register> Logger
+@inject NavigationManager NavigationManager
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>Skapa konto | EasySystems</PageTitle>
+
+<div class="booking-auth-page clean-auth-page">
+    <section class="booking-auth-card">
+        <div class="booking-auth-brand">
+            <div class="booking-auth-logo">ES</div>
+            <div>
+                <strong>EasySystems</strong>
+                <span>Create booking account</span>
+            </div>
+        </div>
+
+        <StatusMessage Message="@Message" />
+
+        <EditForm Model="Input" asp-route-returnUrl="@ReturnUrl" method="post" OnValidSubmit="RegisterUser" FormName="register">
+            <DataAnnotationsValidator />
+
+            <div class="booking-auth-header">
+                <p class="booking-auth-eyebrow">Skapa konto</p>
+                <h1>Kom igång</h1>
+                <p>Skapa ditt konto och fortsätt till en smidigare bokningsupplevelse.</p>
+            </div>
+
+            <ValidationSummary class="booking-auth-error-list" role="alert" />
+
+            <div class="booking-auth-two-cols">
+                <div class="booking-auth-field">
+                    <label for="Input.FirstName">Förnamn</label>
+                    <InputText @bind-Value="Input.FirstName" id="Input.FirstName" class="booking-auth-input" autocomplete="given-name" disabled="@isSubmitting" />
+                    <ValidationMessage For="() => Input.FirstName" class="booking-auth-validation" />
+                </div>
+
+                <div class="booking-auth-field">
+                    <label for="Input.LastName">Efternamn</label>
+                    <InputText @bind-Value="Input.LastName" id="Input.LastName" class="booking-auth-input" autocomplete="family-name" disabled="@isSubmitting" />
+                    <ValidationMessage For="() => Input.LastName" class="booking-auth-validation" />
+                </div>
+            </div>
+
+            <div class="booking-auth-field">
+                <label for="Input.Email">E-post</label>
+                <InputText @bind-Value="Input.Email" id="Input.Email" class="booking-auth-input" autocomplete="username" disabled="@isSubmitting" />
+                <ValidationMessage For="() => Input.Email" class="booking-auth-validation" />
+            </div>
+
+            <div class="booking-auth-field">
+                <label for="Input.PhoneNumber">Telefonnummer</label>
+                <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="booking-auth-input" autocomplete="tel" placeholder="070-123 45 67" disabled="@isSubmitting" />
+                <ValidationMessage For="() => Input.PhoneNumber" class="booking-auth-validation" />
+            </div>
+
+            <div class="booking-auth-two-cols">
+                <div class="booking-auth-field">
+                    <label for="Input.Password">Lösenord</label>
+                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="booking-auth-input" autocomplete="new-password" placeholder="••••••••" disabled="@isSubmitting" />
+                    <ValidationMessage For="() => Input.Password" class="booking-auth-validation" />
+                </div>
+
+                <div class="booking-auth-field">
+                    <label for="Input.ConfirmPassword">Bekräfta lösenord</label>
+                    <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="booking-auth-input" autocomplete="new-password" placeholder="••••••••" disabled="@isSubmitting" />
+                    <ValidationMessage For="() => Input.ConfirmPassword" class="booking-auth-validation" />
+                </div>
+            </div>
+
+            <button type="submit" class="booking-auth-submit" disabled="@isSubmitting">
+                @if (isSubmitting)
+                {
+                    <span class="booking-auth-spinner"></span>
+                    <span>Skapar konto...</span>
+                }
+                else
+                {
+                    <span>Skapa konto</span>
+                }
+            </button>
+
+            <p class="booking-auth-bottom-text">
+                Har du redan ett konto?
+                <a href="/Account/Login">Logga in</a>
+            </p>
+        </EditForm>
+    </section>
+
+    <section class="booking-auth-visual">
+        <div>
+            <span>EasySystems</span>
+            <h2>Book smarter. Manage faster.</h2>
+            <p>Modern accounts for customers, staff and business owners.</p>
+        </div>
+    </section>
+</div>
+
+@code {
+    private IEnumerable<IdentityError>? identityErrors;
+    private bool isSubmitting;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    private string? Message =>
+        identityErrors is null
+            ? null
+            : $"Fel: {string.Join(", ", identityErrors.Select(error => error.Description))}";
+
+    public async Task RegisterUser(EditContext editContext)
+    {
+        if (isSubmitting)
+            return;
+
+        isSubmitting = true;
+        identityErrors = null;
+
+        var user = CreateUser();
+
+        user.FirstName = Input.FirstName.Trim();
+        user.LastName = Input.LastName.Trim();
+        user.PhoneNumber = Input.PhoneNumber.Trim();
+        user.EmailConfirmed = false;
+
+        var email = Input.Email.Trim();
+
+        await UserStore.SetUserNameAsync(user, email, CancellationToken.None);
+
+        var emailStore = GetEmailStore();
+        await emailStore.SetEmailAsync(user, email, CancellationToken.None);
+
+        var result = await UserManager.CreateAsync(user, Input.Password);
+
+        if (!result.Succeeded)
+        {
+            identityErrors = result.Errors;
+            isSubmitting = false;
+            return;
+        }
+
+        if (!await UserManager.IsInRoleAsync(user, AppRoles.Customer))
+        {
+            await UserManager.AddToRoleAsync(user, AppRoles.Customer);
+        }
+
+        Logger.LogInformation("User created a new customer account with password.");
+
+        var userId = await UserManager.GetUserIdAsync(user);
+        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+
+        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
+            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+            new Dictionary<string, object?>
+                {
+                    ["userId"] = userId,
+                    ["code"] = code,
+                    ["returnUrl"] = ReturnUrl
+                });
+
+        await EmailSender.SendConfirmationLinkAsync(
+            user,
+            email,
+            HtmlEncoder.Default.Encode(callbackUrl));
+
+        if (UserManager.Options.SignIn.RequireConfirmedAccount)
+        {
+            RedirectManager.RedirectTo(
+                "Account/RegisterConfirmation",
+                new()
+                    {
+                        ["email"] = email,
+                        ["returnUrl"] = ReturnUrl
+                    });
+            return;
+        }
+
+        await SignInManager.SignInAsync(user, isPersistent: false);
+        RedirectManager.RedirectTo(ReturnUrl);
+    }
+
+    private ApplicationUser CreateUser()
+    {
+        try
+        {
+            return Activator.CreateInstance<ApplicationUser>();
+        }
+        catch
+        {
+            throw new InvalidOperationException($"Det gick inte att skapa en instans av '{nameof(ApplicationUser)}'.");
+        }
+    }
+
+    private IUserEmailStore<ApplicationUser> GetEmailStore()
+    {
+        if (!UserManager.SupportsUserEmail)
+            throw new NotSupportedException("Standardgränssnittet kräver ett användarlager med stöd för e-post.");
+
+        return (IUserEmailStore<ApplicationUser>)UserStore;
+    }
+
+    private sealed class InputModel
+    {
+        [Required(ErrorMessage = "Förnamn krävs.")]
+        [StringLength(50, ErrorMessage = "Förnamn får inte vara längre än 50 tecken.")]
+        public string FirstName { get; set; } = "";
+
+        [Required(ErrorMessage = "Efternamn krävs.")]
+        [StringLength(50, ErrorMessage = "Efternamn får inte vara längre än 50 tecken.")]
+        public string LastName { get; set; } = "";
+
+        [Required(ErrorMessage = "E-post krävs.")]
+        [EmailAddress(ErrorMessage = "Ange en giltig e-postadress.")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Telefonnummer krävs.")]
+        [Phone(ErrorMessage = "Ange ett giltigt telefonnummer.")]
+        public string PhoneNumber { get; set; } = "";
+
+        [Required(ErrorMessage = "Lösenord krävs.")]
+        [StringLength(100, ErrorMessage = "Lösenordet måste vara minst {2} och max {1} tecken långt.", MinimumLength = 6)]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = "";
+
+        [Required(ErrorMessage = "Bekräfta lösenord krävs.")]
+        [DataType(DataType.Password)]
+        [Compare("Password", ErrorMessage = "Lösenorden matchar inte.")]
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

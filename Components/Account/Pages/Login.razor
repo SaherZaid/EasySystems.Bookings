@@ -1,0 +1,216 @@
+﻿@page "/Account/Login"
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Identity
+@using EasySystems.Bookings.Data.Entities
+
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+@inject ILogger<Login> Logger
+@inject NavigationManager NavigationManager
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>Logga in | EasySystems</PageTitle>
+
+<div class="booking-auth-page clean-auth-page">
+    <section class="booking-auth-card">
+        <div class="booking-auth-brand">
+            <div class="booking-auth-logo">ES</div>
+            <div>
+                <strong>EasySystems</strong>
+                <span>Bookings access</span>
+            </div>
+        </div>
+
+        <StatusMessage Message="@errorMessage" />
+
+        <EditForm Model="Input" method="post" OnValidSubmit="LoginUser" FormName="login">
+            <DataAnnotationsValidator />
+
+            <div class="booking-auth-header">
+                <p class="booking-auth-eyebrow">Välkommen tillbaka</p>
+                <h1>Logga in</h1>
+                <p>Fortsätt till ditt konto och hantera bokningar, kalender eller kundprofil.</p>
+            </div>
+
+            <ValidationSummary class="booking-auth-error-list" role="alert" />
+
+            <div class="booking-auth-field">
+                <label for="Input.Email">E-post</label>
+                <InputText @bind-Value="Input.Email"
+                           id="Input.Email"
+                           class="booking-auth-input"
+                           autocomplete="username"
+                           disabled="@isSubmitting"
+                           placeholder="namn@example.com" />
+                <ValidationMessage For="() => Input.Email" class="booking-auth-validation" />
+            </div>
+
+            <div class="booking-auth-field">
+                <label for="Input.Password">Lösenord</label>
+                <InputText type="password"
+                           @bind-Value="Input.Password"
+                           id="Input.Password"
+                           class="booking-auth-input"
+                           autocomplete="current-password"
+                           disabled="@isSubmitting"
+                           placeholder="••••••••" />
+                <ValidationMessage For="() => Input.Password" class="booking-auth-validation" />
+            </div>
+
+            <div class="booking-auth-row-between">
+                <label class="booking-auth-check">
+                    <InputCheckbox @bind-Value="Input.RememberMe" disabled="@isSubmitting" />
+                    <span>Kom ihåg mig</span>
+                </label>
+
+                <a href="/Account/ForgotPassword">Glömt lösenord?</a>
+            </div>
+
+            <button type="submit" class="booking-auth-submit" disabled="@isSubmitting">
+                @if (isSubmitting)
+                {
+                    <span class="booking-auth-spinner"></span>
+                    <span>Loggar in...</span>
+                }
+                else
+                {
+                    <span>Logga in</span>
+                }
+            </button>
+
+            <div class="booking-auth-actions compact">
+                <a class="booking-auth-secondary-link"
+                   href="@(NavigationManager.GetUriWithQueryParameters("/Account/Register", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">
+                    Skapa konto
+                </a>
+
+                <a class="booking-auth-secondary-link" href="@GetResendLink()">
+                    Verifiera e-post
+                </a>
+            </div>
+        </EditForm>
+    </section>
+
+    <section class="booking-auth-visual">
+        <div>
+            <span>EasySystems</span>
+            <h2>Smart booking management.</h2>
+            <p>Secure access for bookings, calendar and business tools.</p>
+        </div>
+    </section>
+</div>
+
+@code {
+    private string? errorMessage;
+    private bool isSubmitting;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (HttpMethods.IsGet(HttpContext.Request.Method))
+        {
+            await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
+        }
+    }
+
+    public async Task LoginUser()
+    {
+        if (isSubmitting)
+            return;
+
+        isSubmitting = true;
+        errorMessage = null;
+
+        var email = Input.Email.Trim();
+
+        var user = await UserManager.FindByEmailAsync(email);
+
+        if (user is not null && !await UserManager.IsEmailConfirmedAsync(user))
+        {
+            NavigationManager.NavigateTo(
+                NavigationManager.GetUriWithQueryParameters(
+                    "/Account/ResendEmailConfirmation",
+                    new Dictionary<string, object?> { ["email"] = email }));
+
+            return;
+        }
+
+        var result = await SignInManager.PasswordSignInAsync(
+            email,
+            Input.Password,
+            Input.RememberMe,
+            lockoutOnFailure: false);
+
+        if (result.Succeeded)
+        {
+            Logger.LogInformation("User logged in.");
+            RedirectManager.RedirectTo(ReturnUrl);
+            return;
+        }
+
+        if (result.RequiresTwoFactor)
+        {
+            RedirectManager.RedirectTo(
+                "Account/LoginWith2fa",
+                new()
+                    {
+                        ["returnUrl"] = ReturnUrl,
+                        ["rememberMe"] = Input.RememberMe
+                    });
+            return;
+        }
+
+        if (result.IsLockedOut)
+        {
+            Logger.LogWarning("User account locked out.");
+            RedirectManager.RedirectTo("Account/Lockout");
+            return;
+        }
+
+        if (result.IsNotAllowed)
+        {
+            NavigationManager.NavigateTo(
+                NavigationManager.GetUriWithQueryParameters(
+                    "/Account/ResendEmailConfirmation",
+                    new Dictionary<string, object?> { ["email"] = email }));
+
+            return;
+        }
+
+        errorMessage = "Fel: Ogiltig inloggning.";
+        isSubmitting = false;
+    }
+
+    private string GetResendLink()
+    {
+        if (string.IsNullOrWhiteSpace(Input.Email))
+            return "/Account/ResendEmailConfirmation";
+
+        return NavigationManager.GetUriWithQueryParameters(
+            "/Account/ResendEmailConfirmation",
+            new Dictionary<string, object?> { ["email"] = Input.Email.Trim() });
+    }
+
+    private sealed class InputModel
+    {
+        [Required(ErrorMessage = "E-post krävs.")]
+        [EmailAddress(ErrorMessage = "Ange en giltig e-postadress.")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Lösenord krävs.")]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = "";
+
+        public bool RememberMe { get; set; }
+    }
+}

@@ -1,0 +1,474 @@
+﻿@page "/admin/businesses/{BusinessId:int}/calendar"
+@rendermode InteractiveServer
+
+@using EasySystems.Bookings.Components.Admin
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.EntityFrameworkCore
+
+@inherits AdminBusinessPageBase
+
+@inject ApplicationDbContext Db
+
+<PageTitle>Kalender | EasySystems</PageTitle>
+
+<AdminNavbar BusinessId="BusinessId" />
+
+@if (!Permissions.HasAccess)
+{
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-loading-card">Kontrollerar åtkomst...</div>
+        </div>
+    </div>
+}
+else if (!Permissions.CanManageCalendar)
+{
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-alert danger">Du har inte behörighet att hantera kalendern.</div>
+        </div>
+    </div>
+}
+else if (business is null)
+{
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-loading-card">Laddar kalender...</div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="admin-page calendar-admin-page">
+        <div class="admin-shell">
+
+            <section class="admin-hero">
+                <div>
+                    <p class="admin-eyebrow">Kalender</p>
+                    <h1>@business.Name</h1>
+                    <p>@selectedDate.ToString("dddd d MMMM yyyy", SwedishCulture)</p>
+                </div>
+
+                <div class="admin-hero-actions">
+                    @if (Permissions.CanManageBookings)
+                    {
+                        <a class="admin-primary-btn" href="/admin/businesses/@BusinessId/bookings/create">
+                            + Skapa bokning
+                        </a>
+
+                        <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/bookings">
+                            Bokningar
+                        </a>
+                    }
+
+                    <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/overview">
+                        Översikt
+                    </a>
+                </div>
+            </section>
+
+            <section class="calendar-picker-card">
+                <div class="calendar-picker-head">
+                    <button type="button" @onclick="PreviousMonth">‹</button>
+
+                    <div>
+                        <strong>@visibleMonth.ToString("MMMM yyyy", SwedishCulture)</strong>
+                        <span>Välj dag för att se bokningar</span>
+                    </div>
+
+                    <button type="button" @onclick="NextMonth">›</button>
+                </div>
+
+                <div class="calendar-month-grid calendar-weekdays">
+                    <span>Mån</span>
+                    <span>Tis</span>
+                    <span>Ons</span>
+                    <span>Tors</span>
+                    <span>Fre</span>
+                    <span>Lör</span>
+                    <span>Sön</span>
+                </div>
+
+                <div class="calendar-month-grid">
+                    @foreach (var day in MonthDays)
+                    {
+                        <button type="button"
+                                class="calendar-month-day @(day.Month != visibleMonth.Month ? "outside" : "") @(day.Date == selectedDate.Date ? "active" : "") @(HasBookings(day) ? "has-bookings" : "")"
+                                @onclick="() => SelectDay(day)">
+                            <strong>@day.Day</strong>
+
+                            @if (HasBookings(day))
+                            {
+                                <small>@GetBookingCount(day)</small>
+                            }
+                        </button>
+                    }
+                </div>
+
+                <div class="calendar-picker-actions">
+                    <button type="button" @onclick="GoToday">Idag</button>
+                    <button type="button" @onclick="PreviousDay">Föregående dag</button>
+                    <button type="button" @onclick="NextDay">Nästa dag</button>
+                </div>
+            </section>
+
+            <section class="calendar-stat-grid">
+                <div class="booking-stat-card">
+                    <span>Bokningar</span>
+                    <strong>@dayBookings.Count</strong>
+                    <p>Vald dag</p>
+                </div>
+
+                <div class="booking-stat-card">
+                    <span>Bekräftade</span>
+                    <strong>@ConfirmedCount</strong>
+                    <p>Klara tider</p>
+                </div>
+
+                <div class="booking-stat-card">
+                    <span>Väntar</span>
+                    <strong>@PendingCount</strong>
+                    <p>Behöver hanteras</p>
+                </div>
+
+                <div class="booking-stat-card">
+                    <span>Betalda</span>
+                    <strong>@PaidCount</strong>
+                    <p>@PaidAmount.ToString("0.00") kr</p>
+                </div>
+            </section>
+
+            <section class="calendar-day-bookings">
+                <div class="calendar-day-bookings-head">
+                    <div>
+                        <p class="admin-eyebrow">Dagens bokningar</p>
+                        <h2>@selectedDate.ToString("dddd d MMMM", SwedishCulture)</h2>
+                    </div>
+
+                    <span>@dayBookings.Count bokningar</span>
+                </div>
+
+                @if (!dayBookings.Any())
+                {
+                    <div class="admin-empty-card">
+                        <h2>Inga bokningar denna dag</h2>
+                        <p>Det finns inga bokningar på valt datum.</p>
+
+                        @if (Permissions.CanManageBookings)
+                        {
+                            <a class="admin-primary-btn" href="/admin/businesses/@BusinessId/bookings/create">
+                                Skapa bokning
+                            </a>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="calendar-booking-list">
+                        @foreach (var booking in dayBookings)
+                        {
+                            <article class="calendar-booking-card">
+                                <div class="calendar-booking-time">
+                                    <strong>@booking.StartTime.ToString("HH:mm")</strong>
+                                    <span>@booking.EndTime.ToString("HH:mm")</span>
+                                </div>
+
+                                <div class="calendar-booking-info">
+                                    <div class="calendar-booking-title-row">
+                                        <div>
+                                            <h3>@booking.CustomerName</h3>
+                                            <p>@booking.Service.Name · @booking.StaffMember.FullName</p>
+                                        </div>
+
+                                        <div class="booking-badges">
+                                            <span class="@GetStatusClass(booking.Status)">
+                                                @TranslateStatus(booking.Status)
+                                            </span>
+
+                                            <span class="@GetPaymentClass(booking.IsPaid)">
+                                                @(booking.IsPaid ? "Betald" : "Obetald")
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div class="booking-detail-grid">
+                                        <div>
+                                            <span>Kund</span>
+                                            <strong>@booking.CustomerName</strong>
+                                            <small>@GetContactText(booking)</small>
+                                        </div>
+
+                                        <div>
+                                            <span>Tjänst</span>
+                                            <strong>@booking.Service.Name</strong>
+                                            <small>@booking.Service.DurationMinutes min · @booking.Service.Price.ToString("0.00") kr</small>
+                                        </div>
+
+                                        <div>
+                                            <span>Personal</span>
+                                            <strong>@booking.StaffMember.FullName</strong>
+                                            <small>@(string.IsNullOrWhiteSpace(booking.StaffMember.Specialization) ? "Ingen specialisering" : booking.StaffMember.Specialization)</small>
+                                        </div>
+
+                                        <div>
+                                            <span>Betalning</span>
+                                            <strong>@(booking.IsPaid ? $"{booking.PaidAmount:0.00} kr" : "Ej betald")</strong>
+                                            <small>@(string.IsNullOrWhiteSpace(booking.PaymentMethod) ? "Ingen metod" : booking.PaymentMethod)</small>
+                                        </div>
+                                    </div>
+
+                                    @if (!string.IsNullOrWhiteSpace(booking.Notes))
+                                    {
+                                        <div class="booking-note">
+                                            @booking.Notes
+                                        </div>
+                                    }
+
+                                    <div class="calendar-booking-actions">
+                                        <div class="calendar-status-actions">
+                                            <button type="button"
+                                                    class="status-action confirm"
+                                                    disabled="@IsSaving(booking.Id)"
+                                                    @onclick='() => ChangeStatusAsync(booking.Id, "Confirmed")'>
+                                                Bekräfta
+                                            </button>
+
+                                            <button type="button"
+                                                    class="status-action pending"
+                                                    disabled="@IsSaving(booking.Id)"
+                                                    @onclick='() => ChangeStatusAsync(booking.Id, "Pending")'>
+                                                Väntar
+                                            </button>
+
+                                            <button type="button"
+                                                    class="status-action cancel"
+                                                    disabled="@IsSaving(booking.Id)"
+                                                    @onclick='() => ChangeStatusAsync(booking.Id, "Cancelled")'>
+                                                Avboka
+                                            </button>
+                                        </div>
+
+                                        @if (Permissions.CanManageBookings)
+                                        {
+                                            <a href="/admin/businesses/@BusinessId/bookings/edit/@booking.Id">
+                                                Redigera bokning
+                                            </a>
+                                        }
+                                    </div>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+            </section>
+
+        </div>
+    </div>
+}
+
+@code {
+    private Business? business;
+
+    private DateTime selectedDate = DateTime.Today;
+    private DateTime visibleMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+    private List<Booking> monthBookings = [];
+    private List<Booking> dayBookings = [];
+
+    private HashSet<int> savingBookingIds = [];
+
+    private static readonly System.Globalization.CultureInfo SwedishCulture = new("sv-SE");
+
+    private IEnumerable<DateTime> MonthDays
+    {
+        get
+        {
+            var firstDay = new DateTime(visibleMonth.Year, visibleMonth.Month, 1);
+            var offset = ((int)firstDay.DayOfWeek + 6) % 7;
+            var start = firstDay.AddDays(-offset);
+
+            return Enumerable.Range(0, 42).Select(i => start.AddDays(i));
+        }
+    }
+
+    private int ConfirmedCount =>
+        dayBookings.Count(b => string.Equals(b.Status, "Confirmed", StringComparison.OrdinalIgnoreCase));
+
+    private int PendingCount =>
+        dayBookings.Count(b => string.Equals(b.Status, "Pending", StringComparison.OrdinalIgnoreCase));
+
+    private int PaidCount =>
+        dayBookings.Count(b => b.IsPaid);
+
+    private decimal PaidAmount =>
+        dayBookings.Where(b => b.IsPaid).Sum(b => b.PaidAmount);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        if (!Permissions.HasAccess || !Permissions.CanManageCalendar)
+            return;
+
+        business = await Db.Businesses.FirstOrDefaultAsync(b => b.Id == BusinessId);
+
+        if (business is null)
+            return;
+
+        await LoadMonthAsync();
+        LoadDayBookings();
+    }
+
+    private async Task LoadMonthAsync()
+    {
+        var monthStart = new DateTime(visibleMonth.Year, visibleMonth.Month, 1);
+        var monthEnd = monthStart.AddMonths(1);
+
+        monthBookings = await Db.Bookings
+            .Include(b => b.Service)
+            .Include(b => b.StaffMember)
+            .Where(b =>
+                b.BusinessId == BusinessId &&
+                b.StartTime >= monthStart &&
+                b.StartTime < monthEnd)
+            .OrderBy(b => b.StartTime)
+            .ToListAsync();
+    }
+
+    private void LoadDayBookings()
+    {
+        dayBookings = monthBookings
+            .Where(b => b.StartTime.Date == selectedDate.Date)
+            .OrderBy(b => b.StartTime)
+            .ToList();
+    }
+
+    private async Task SelectDay(DateTime day)
+    {
+        selectedDate = day.Date;
+
+        if (visibleMonth.Month != selectedDate.Month || visibleMonth.Year != selectedDate.Year)
+        {
+            visibleMonth = new DateTime(selectedDate.Year, selectedDate.Month, 1);
+            await LoadMonthAsync();
+        }
+
+        LoadDayBookings();
+    }
+
+    private async Task PreviousMonth()
+    {
+        visibleMonth = visibleMonth.AddMonths(-1);
+        selectedDate = visibleMonth;
+        await LoadMonthAsync();
+        LoadDayBookings();
+    }
+
+    private async Task NextMonth()
+    {
+        visibleMonth = visibleMonth.AddMonths(1);
+        selectedDate = visibleMonth;
+        await LoadMonthAsync();
+        LoadDayBookings();
+    }
+
+    private async Task PreviousDay()
+    {
+        await SelectDay(selectedDate.AddDays(-1));
+    }
+
+    private async Task NextDay()
+    {
+        await SelectDay(selectedDate.AddDays(1));
+    }
+
+    private async Task GoToday()
+    {
+        selectedDate = DateTime.Today;
+        visibleMonth = new DateTime(selectedDate.Year, selectedDate.Month, 1);
+        await LoadMonthAsync();
+        LoadDayBookings();
+    }
+
+    private bool HasBookings(DateTime day)
+    {
+        return monthBookings.Any(b => b.StartTime.Date == day.Date);
+    }
+
+    private int GetBookingCount(DateTime day)
+    {
+        return monthBookings.Count(b => b.StartTime.Date == day.Date);
+    }
+
+    private bool IsSaving(int bookingId)
+    {
+        return savingBookingIds.Contains(bookingId);
+    }
+
+    private async Task ChangeStatusAsync(int bookingId, string status)
+    {
+        savingBookingIds.Add(bookingId);
+
+        var booking = await Db.Bookings
+            .FirstOrDefaultAsync(b => b.Id == bookingId && b.BusinessId == BusinessId);
+
+        if (booking is not null)
+        {
+            booking.Status = status;
+            booking.UpdatedAt = DateTime.UtcNow;
+            await Db.SaveChangesAsync();
+        }
+
+        savingBookingIds.Remove(bookingId);
+
+        await LoadMonthAsync();
+        LoadDayBookings();
+    }
+
+    private static string GetStatusClass(string status)
+    {
+        return status switch
+        {
+            "Confirmed" => "booking-pill success",
+            "Pending" => "booking-pill warning",
+            "Cancelled" => "booking-pill danger",
+            _ => "booking-pill muted"
+        };
+    }
+
+    private static string GetPaymentClass(bool isPaid)
+    {
+        return isPaid
+            ? "booking-pill success"
+            : "booking-pill neutral";
+    }
+
+    private static string TranslateStatus(string status)
+    {
+        return status switch
+        {
+            "Confirmed" => "Bekräftad",
+            "Pending" => "Väntar",
+            "Cancelled" => "Avbokad",
+            _ => status
+        };
+    }
+
+    private static string GetContactText(Booking booking)
+    {
+        if (!string.IsNullOrWhiteSpace(booking.CustomerEmail) &&
+            !string.IsNullOrWhiteSpace(booking.CustomerPhone))
+        {
+            return $"{booking.CustomerEmail} · {booking.CustomerPhone}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(booking.CustomerEmail))
+            return booking.CustomerEmail;
+
+        if (!string.IsNullOrWhiteSpace(booking.CustomerPhone))
+            return booking.CustomerPhone;
+
+        return "Ingen kontaktinformation";
+    }
+}

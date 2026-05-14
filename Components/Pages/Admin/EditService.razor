@@ -1,0 +1,190 @@
+﻿@page "/admin/businesses/{BusinessId:int}/services/edit/{Id:int}"
+
+@using EasySystems.Bookings.Components.Admin
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.EntityFrameworkCore
+
+@inherits AdminBusinessPageBase
+
+@inject ApplicationDbContext Db
+
+<PageTitle>Edit Service</PageTitle>
+
+<AdminNavbar BusinessId="BusinessId" />
+
+@if (!Permissions.HasAccess)
+{
+    <p>Checking access...</p>
+}
+else if (!Permissions.CanManageServices)
+{
+    <div class="alert alert-danger">
+        You do not have permission to manage services.
+    </div>
+}
+else if (service is null || business is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+            <h1>Edit Service</h1>
+
+            <p class="text-muted mb-0">
+                @business.Name —
+                @business.OpeningTime.ToString(@"hh\:mm")
+                to
+                @business.ClosingTime.ToString(@"hh\:mm")
+            </p>
+        </div>
+
+        <a class="btn btn-outline-secondary"
+           href="/admin/businesses/@BusinessId/services">
+            Back
+        </a>
+
+    </div>
+
+    <EditForm Model="service" OnValidSubmit="SaveAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+
+                <div class="mb-3">
+                    <label class="form-label">Service name</label>
+                    <InputText class="form-control" @bind-Value="service.Name" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <InputTextArea class="form-control"
+                                   rows="4"
+                                   @bind-Value="service.Description" />
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Price</label>
+                        <InputNumber class="form-control" @bind-Value="service.Price" />
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Duration (minutes)</label>
+                        <InputNumber class="form-control" @bind-Value="service.DurationMinutes" />
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Sort order</label>
+                        <InputNumber class="form-control" @bind-Value="service.SortOrder" />
+                    </div>
+                </div>
+
+                <div class="form-check mb-4">
+                    <InputCheckbox class="form-check-input" @bind-Value="service.IsActive" />
+                    <label class="form-check-label">
+                        Active
+                    </label>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(errorMessage))
+                {
+                    <div class="alert alert-danger">
+                        @errorMessage
+                    </div>
+                }
+
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-primary" type="submit">
+                        Save Changes
+                    </button>
+
+                    <a class="btn btn-outline-dark"
+                       href="/admin/businesses/@BusinessId/services">
+                        Cancel
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Service? service;
+    private Business? business;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        if (!Permissions.HasAccess || !Permissions.CanManageServices)
+        {
+            return;
+        }
+
+        business = await Db.Businesses
+            .FirstOrDefaultAsync(b => b.Id == BusinessId);
+
+        if (business is null)
+        {
+            Navigation.NavigateTo("/admin/businesses");
+            return;
+        }
+
+        service = await Db.Services
+            .FirstOrDefaultAsync(s =>
+                s.Id == Id &&
+                s.BusinessId == BusinessId);
+
+        if (service is null)
+        {
+            Navigation.NavigateTo($"/admin/businesses/{BusinessId}/services");
+            return;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        errorMessage = null;
+
+        if (service is null)
+        {
+            return;
+        }
+
+        service.Name = service.Name.Trim();
+        service.UpdatedAt = DateTime.UtcNow;
+
+        if (string.IsNullOrWhiteSpace(service.Name))
+        {
+            errorMessage = "Service name is required.";
+            return;
+        }
+
+        if (service.DurationMinutes <= 0)
+        {
+            errorMessage = "Duration must be greater than 0 minutes.";
+            return;
+        }
+
+        if (service.Price < 0)
+        {
+            errorMessage = "Price cannot be negative.";
+            return;
+        }
+
+        await Db.SaveChangesAsync();
+
+        Navigation.NavigateTo($"/admin/businesses/{BusinessId}/services");
+    }
+}

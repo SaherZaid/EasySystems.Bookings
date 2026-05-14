@@ -1,0 +1,789 @@
+﻿@page "/admin/businesses/{BusinessId:int}/roles"
+@rendermode InteractiveServer
+
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Access
+@using EasySystems.Bookings.Data.Entities
+@using EasySystems.Bookings.Data.Identity
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+
+@attribute [Authorize]
+
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject BusinessAccessService BusinessAccessService
+@inject NavigationManager Navigation
+
+<PageTitle>Manage roles | EasySystems</PageTitle>
+
+<AdminNavbar BusinessId="BusinessId" />
+
+<div class="roles-page">
+    <div class="roles-shell">
+
+        <section class="roles-hero">
+            <div>
+                <p class="roles-eyebrow">Team access</p>
+                <h1>Manage roles</h1>
+                <p>Add users, assign roles and manage permissions for this business.</p>
+            </div>
+
+            <button class="roles-refresh-btn"
+                    @onclick="LoadAsync"
+                    disabled="@isLoading">
+
+                @(isLoading ? "Loading..." : "Refresh")
+
+            </button>
+        </section>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="roles-alert error">
+                @errorMessage
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="roles-alert success">
+                @successMessage
+            </div>
+        }
+
+        @if (isLoading)
+        {
+            <div class="roles-loading">
+                Loading users...
+            </div>
+        }
+        else if (!hasAccess)
+        {
+            <div class="roles-empty">
+                <h2>Access denied</h2>
+                <p>You do not have permission to manage this business.</p>
+            </div>
+        }
+        else
+        {
+            <section class="roles-add-card">
+
+                <div>
+                    <h2>Add user</h2>
+                    <p>Search users by name, email or phone number.</p>
+                </div>
+
+                <div class="roles-search-row">
+
+                    <input class="roles-input"
+                           @bind="searchText"
+                           @bind:event="oninput"
+                           placeholder="Search users..." />
+
+                    <button class="roles-action-btn"
+                            @onclick="SearchUsersAsync"
+                            disabled="@isSearching">
+
+                        @(isSearching ? "Searching..." : "Search")
+
+                    </button>
+
+                </div>
+
+                @if (isSearching)
+                {
+                    <div class="roles-inline-loading">
+                        Searching users...
+                    </div>
+                }
+                else if (hasSearched && searchResults.Count == 0)
+                {
+                    <div class="roles-empty small">
+                        <h2>No users found</h2>
+                        <p>Try another search.</p>
+                    </div>
+                }
+                else if (searchResults.Count > 0)
+                {
+                    <div class="roles-search-results">
+
+                        @foreach (var user in searchResults)
+                        {
+                            <div class="roles-search-item">
+
+                                <div class="roles-search-main">
+
+                                    <div class="roles-avatar small">
+                                        @GetInitials(user)
+                                    </div>
+
+                                    <div>
+                                        <strong>@user.FullName</strong>
+
+                                        <span>@user.Email</span>
+
+                                        @if (!string.IsNullOrWhiteSpace(user.PhoneNumber))
+                                        {
+                                            <small>@user.PhoneNumber</small>
+                                        }
+                                    </div>
+
+                                </div>
+
+                                <div class="roles-search-meta">
+
+                                    <span>
+                                        @user.TotalBookings bookings
+                                    </span>
+
+                                    @if (user.LastBookingAt is not null)
+                                    {
+                                        <small>
+                                            Last booking:
+                                            @user.LastBookingAt.Value.ToLocalTime().ToString("yyyy-MM-dd")
+                                        </small>
+                                    }
+                                    else
+                                    {
+                                        <small>No bookings</small>
+                                    }
+
+                                </div>
+
+                                @if (user.AlreadyInBusiness)
+                                {
+                                    <span class="roles-status-pill">
+                                        Added
+                                    </span>
+                                }
+                                else
+                                {
+                                    <button class="roles-small-btn"
+                                            @onclick="() => AddUserToBusinessAsync(user.UserId)"
+                                            disabled="@savingUserIds.Contains(user.UserId)">
+
+                                        @(savingUserIds.Contains(user.UserId)
+                                            ? "Adding..."
+                                            : "Add")
+
+                                    </button>
+                                }
+
+                            </div>
+                        }
+
+                    </div>
+                }
+
+            </section>
+
+            <section class="roles-toolbar">
+
+                <input class="roles-input"
+                       @bind="filterText"
+                       @bind:event="oninput"
+                       placeholder="Filter assigned users..." />
+
+                <span>
+                    @FilteredUsers.Count() assigned users
+                </span>
+
+            </section>
+
+            @if (!FilteredUsers.Any())
+            {
+                <div class="roles-empty">
+                    <h2>No assigned users</h2>
+                    <p>Add users to start managing permissions.</p>
+                </div>
+            }
+            else
+            {
+                <section class="roles-grid">
+
+                    @foreach (var user in FilteredUsers)
+                    {
+                        <article class="roles-card">
+
+                            <div class="roles-card-top">
+
+                                <div class="roles-avatar">
+                                    @GetInitials(user)
+                                </div>
+
+                                <div>
+                                    <h3>@GetName(user)</h3>
+
+                                    <p>@user.Email</p>
+
+                                    @if (!string.IsNullOrWhiteSpace(user.PhoneNumber))
+                                    {
+                                        <small>@user.PhoneNumber</small>
+                                    }
+                                </div>
+
+                            </div>
+
+                            <div class="roles-stats">
+
+                                <div>
+                                    <strong>@user.TotalBookings</strong>
+                                    <span>Bookings</span>
+                                </div>
+
+                                <div>
+                                    <strong>
+                                        @(user.LastBookingAt?.ToLocalTime().ToString("yyyy-MM-dd") ?? "-")
+                                    </strong>
+
+                                    <span>Last booking</span>
+                                </div>
+
+                            </div>
+
+                            <div class="roles-field">
+
+                                <label>Role</label>
+
+                                <select class="roles-select"
+                                        @bind="user.Role">
+
+                                    <option value="@AppRoles.BusinessOwner">
+                                        BusinessOwner
+                                    </option>
+
+                                    <option value="@AppRoles.BusinessAdmin">
+                                        BusinessAdmin
+                                    </option>
+
+                                    <option value="@AppRoles.Staff">
+                                        Staff
+                                    </option>
+
+                                    <option value="@AppRoles.Customer">
+                                        Customer
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+                            <div class="roles-permissions">
+
+                                <label class="roles-check">
+                                    <input type="checkbox"
+                                           @bind="user.CanManageServices" />
+                                    <span>Services</span>
+                                </label>
+
+                                <label class="roles-check">
+                                    <input type="checkbox"
+                                           @bind="user.CanManageStaff" />
+                                    <span>Staff</span>
+                                </label>
+
+                                <label class="roles-check">
+                                    <input type="checkbox"
+                                           @bind="user.CanManageBookings" />
+                                    <span>Bookings</span>
+                                </label>
+
+                                <label class="roles-check">
+                                    <input type="checkbox"
+                                           @bind="user.CanManageCalendar" />
+                                    <span>Calendar</span>
+                                </label>
+
+                                <label class="roles-check">
+                                    <input type="checkbox"
+                                           @bind="user.CanManageSettings" />
+                                    <span>Settings</span>
+                                </label>
+
+                            </div>
+
+                            <div class="roles-card-actions">
+
+                                <button class="roles-save-btn"
+                                        @onclick="() => SaveUserAsync(user)"
+                                        disabled="@savingUserIds.Contains(user.UserId)">
+
+                                    @(savingUserIds.Contains(user.UserId)
+                                        ? "Saving..."
+                                        : "Save")
+
+                                </button>
+
+                                <button class="roles-remove-btn"
+                                        @onclick="() => RemoveUserAsync(user)"
+                                        disabled="@savingUserIds.Contains(user.UserId)">
+
+                                    Remove
+
+                                </button>
+
+                            </div>
+
+                        </article>
+                    }
+
+                </section>
+            }
+        }
+    </div>
+</div>
+
+@code {
+
+    [Parameter]
+    public int BusinessId { get; set; }
+
+    private bool isLoading = true;
+
+    private bool isSearching;
+
+    private bool hasSearched;
+
+    private bool hasAccess;
+
+    private string? errorMessage;
+
+    private string? successMessage;
+
+    private string searchText = "";
+
+    private string filterText = "";
+
+    private BusinessPermissionResult permissions = new();
+
+    private List<RoleUserModel> users = [];
+
+    private List<UserSearchModel> searchResults = [];
+
+    private HashSet<string> savingUserIds = [];
+
+    private IEnumerable<RoleUserModel> FilteredUsers =>
+        string.IsNullOrWhiteSpace(filterText)
+            ? users
+            : users.Where(x =>
+                GetName(x).Contains(filterText, StringComparison.OrdinalIgnoreCase) ||
+                x.Email.Contains(filterText, StringComparison.OrdinalIgnoreCase) ||
+                x.PhoneNumber.Contains(filterText, StringComparison.OrdinalIgnoreCase) ||
+                x.Role.Contains(filterText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+
+        errorMessage = null;
+
+        successMessage = null;
+
+        searchResults.Clear();
+
+        hasSearched = false;
+
+        var authState =
+            await AuthStateProvider.GetAuthenticationStateAsync();
+
+        var principal = authState.User;
+
+        permissions = await BusinessAccessService
+            .GetPermissionsAsync(principal, BusinessId);
+
+        hasAccess =
+            permissions.IsPlatformSuperAdmin ||
+            permissions.Role == AppRoles.BusinessOwner ||
+            permissions.CanManageSettings;
+
+        if (!hasAccess)
+        {
+            isLoading = false;
+            return;
+        }
+
+        await using var db =
+            await DbFactory.CreateDbContextAsync();
+
+        var hiddenUserIds =
+            await GetHiddenUserIdsAsync(db);
+
+        users = await db.BusinessUsers
+            .AsNoTracking()
+            .Where(x => x.BusinessId == BusinessId)
+            .Where(x => !hiddenUserIds.Contains(x.UserId))
+            .Select(x => new RoleUserModel
+                {
+                    BusinessUserId = x.Id,
+
+                    UserId = x.UserId,
+
+                    FirstName = x.User.FirstName ?? "",
+
+                    LastName = x.User.LastName ?? "",
+
+                    Email = x.User.Email ?? "",
+
+                    PhoneNumber = x.User.PhoneNumber ?? "",
+
+                    Role = x.Role,
+
+                    CanManageServices = x.CanManageServices,
+
+                    CanManageStaff = x.CanManageStaff,
+
+                    CanManageBookings = x.CanManageBookings,
+
+                    CanManageCalendar = x.CanManageCalendar,
+
+                    CanManageSettings = x.CanManageSettings,
+
+                    TotalBookings = db.Bookings.Count(b =>
+                        b.BusinessId == BusinessId &&
+                        b.CustomerEmail != null &&
+                        x.User.Email != null &&
+                        b.CustomerEmail == x.User.Email),
+
+                    LastBookingAt = db.Bookings
+                        .Where(b =>
+                            b.BusinessId == BusinessId &&
+                            b.CustomerEmail != null &&
+                            x.User.Email != null &&
+                            b.CustomerEmail == x.User.Email)
+                        .OrderByDescending(b => b.StartTime)
+                        .Select(b => (DateTime?)b.StartTime)
+                        .FirstOrDefault()
+                })
+            .OrderBy(x => x.FirstName)
+            .ThenBy(x => x.LastName)
+            .ThenBy(x => x.Email)
+            .ToListAsync();
+
+        isLoading = false;
+    }
+
+    private async Task SearchUsersAsync()
+    {
+        searchResults.Clear();
+
+        errorMessage = null;
+
+        successMessage = null;
+
+        hasSearched = true;
+
+        isSearching = true;
+
+        await using var db =
+            await DbFactory.CreateDbContextAsync();
+
+        var term = searchText.Trim();
+
+        var likeTerm = $"%{term}%";
+
+        var hiddenUserIds =
+            await GetHiddenUserIdsAsync(db);
+
+        var query = db.Users
+            .AsNoTracking()
+            .Where(x => !hiddenUserIds.Contains(x.Id));
+
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            query = query.Where(x =>
+                (x.Email != null &&
+                 EF.Functions.Like(x.Email, likeTerm)) ||
+
+                (x.FirstName != null &&
+                 EF.Functions.Like(x.FirstName, likeTerm)) ||
+
+                (x.LastName != null &&
+                 EF.Functions.Like(x.LastName, likeTerm)) ||
+
+                (x.PhoneNumber != null &&
+                 EF.Functions.Like(x.PhoneNumber, likeTerm)));
+        }
+
+        searchResults = await query
+            .Select(user => new UserSearchModel
+                {
+                    UserId = user.Id,
+
+                    FullName =
+                        (((user.FirstName ?? "") + " " + (user.LastName ?? "")).Trim() == ""
+                            ? user.Email ?? "User"
+                            : ((user.FirstName ?? "") + " " + (user.LastName ?? "")).Trim()),
+
+                    Email = user.Email ?? "",
+
+                    PhoneNumber = user.PhoneNumber ?? "",
+
+                    TotalBookings = db.Bookings.Count(b =>
+                        b.BusinessId == BusinessId &&
+                        b.CustomerEmail != null &&
+                        user.Email != null &&
+                        b.CustomerEmail == user.Email),
+
+                    LastBookingAt = db.Bookings
+                        .Where(b =>
+                            b.BusinessId == BusinessId &&
+                            b.CustomerEmail != null &&
+                            user.Email != null &&
+                            b.CustomerEmail == user.Email)
+                        .OrderByDescending(b => b.StartTime)
+                        .Select(b => (DateTime?)b.StartTime)
+                        .FirstOrDefault(),
+
+                    AlreadyInBusiness = db.BusinessUsers.Any(bu =>
+                        bu.BusinessId == BusinessId &&
+                        bu.UserId == user.Id)
+                })
+            .OrderByDescending(x => x.LastBookingAt)
+            .ThenBy(x => x.FullName)
+            .Take(50)
+            .ToListAsync();
+
+        isSearching = false;
+    }
+
+    private async Task AddUserToBusinessAsync(string userId)
+    {
+        savingUserIds.Add(userId);
+
+        errorMessage = null;
+
+        successMessage = null;
+
+        await using var db =
+            await DbFactory.CreateDbContextAsync();
+
+        var exists = await db.BusinessUsers
+            .AnyAsync(x =>
+                x.BusinessId == BusinessId &&
+                x.UserId == userId);
+
+        if (!exists)
+        {
+            db.BusinessUsers.Add(new BusinessUser
+                {
+                    BusinessId = BusinessId,
+
+                    UserId = userId,
+
+                    Role = AppRoles.Staff,
+
+                    CanManageBookings = true,
+
+                    CanManageCalendar = true
+                });
+
+            await db.SaveChangesAsync();
+        }
+
+        successMessage = "User added.";
+
+        savingUserIds.Remove(userId);
+
+        await LoadAsync();
+    }
+
+    private async Task SaveUserAsync(RoleUserModel model)
+    {
+        savingUserIds.Add(model.UserId);
+
+        errorMessage = null;
+
+        successMessage = null;
+
+        await using var db =
+            await DbFactory.CreateDbContextAsync();
+
+        var businessUser = await db.BusinessUsers
+            .FirstOrDefaultAsync(x =>
+                x.Id == model.BusinessUserId &&
+                x.BusinessId == BusinessId);
+
+        if (businessUser is null)
+        {
+            errorMessage = "User not found.";
+
+            savingUserIds.Remove(model.UserId);
+
+            return;
+        }
+
+        businessUser.Role = model.Role;
+
+        businessUser.CanManageServices = model.CanManageServices;
+
+        businessUser.CanManageStaff = model.CanManageStaff;
+
+        businessUser.CanManageBookings = model.CanManageBookings;
+
+        businessUser.CanManageCalendar = model.CanManageCalendar;
+
+        businessUser.CanManageSettings = model.CanManageSettings;
+
+        await db.SaveChangesAsync();
+
+        successMessage = "Permissions saved.";
+
+        savingUserIds.Remove(model.UserId);
+    }
+
+    private async Task RemoveUserAsync(RoleUserModel model)
+    {
+        savingUserIds.Add(model.UserId);
+
+        errorMessage = null;
+
+        successMessage = null;
+
+        await using var db =
+            await DbFactory.CreateDbContextAsync();
+
+        var businessUser = await db.BusinessUsers
+            .FirstOrDefaultAsync(x =>
+                x.Id == model.BusinessUserId &&
+                x.BusinessId == BusinessId);
+
+        if (businessUser is not null)
+        {
+            db.BusinessUsers.Remove(businessUser);
+
+            await db.SaveChangesAsync();
+        }
+
+        successMessage = "User removed.";
+
+        savingUserIds.Remove(model.UserId);
+
+        await LoadAsync();
+    }
+
+    private static async Task<List<string>> GetHiddenUserIdsAsync(ApplicationDbContext db)
+    {
+        return await (
+            from userRole in db.UserRoles
+            join role in db.Roles
+                on userRole.RoleId equals role.Id
+            where role.Name == AppRoles.PlatformSuperAdmin
+            select userRole.UserId
+        ).ToListAsync();
+    }
+
+    private static string GetName(RoleUserModel user)
+    {
+        var name =
+            $"{user.FirstName} {user.LastName}".Trim();
+
+        return string.IsNullOrWhiteSpace(name)
+            ? user.Email
+            : name;
+    }
+
+    private static string GetInitials(RoleUserModel user)
+    {
+        if (!string.IsNullOrWhiteSpace(user.FirstName) &&
+            !string.IsNullOrWhiteSpace(user.LastName))
+        {
+            return
+                $"{user.FirstName[0]}{user.LastName[0]}"
+                .ToUpper();
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.Email))
+        {
+            return user.Email[0]
+                .ToString()
+                .ToUpper();
+        }
+
+        return "U";
+    }
+
+    private static string GetInitials(UserSearchModel user)
+    {
+        if (!string.IsNullOrWhiteSpace(user.FullName) &&
+            user.FullName != user.Email)
+        {
+            var parts = user.FullName
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            if (parts.Length >= 2)
+            {
+                return
+                    $"{parts[0][0]}{parts[1][0]}"
+                    .ToUpper();
+            }
+
+            return user.FullName[0]
+                .ToString()
+                .ToUpper();
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.Email))
+        {
+            return user.Email[0]
+                .ToString()
+                .ToUpper();
+        }
+
+        return "U";
+    }
+
+    private sealed class RoleUserModel
+    {
+        public int BusinessUserId { get; set; }
+
+        public string UserId { get; set; } = "";
+
+        public string FirstName { get; set; } = "";
+
+        public string LastName { get; set; } = "";
+
+        public string Email { get; set; } = "";
+
+        public string PhoneNumber { get; set; } = "";
+
+        public string Role { get; set; } = AppRoles.Staff;
+
+        public bool CanManageServices { get; set; }
+
+        public bool CanManageStaff { get; set; }
+
+        public bool CanManageBookings { get; set; }
+
+        public bool CanManageCalendar { get; set; }
+
+        public bool CanManageSettings { get; set; }
+
+        public int TotalBookings { get; set; }
+
+        public DateTime? LastBookingAt { get; set; }
+    }
+
+    private sealed class UserSearchModel
+    {
+        public string UserId { get; set; } = "";
+
+        public string FullName { get; set; } = "";
+
+        public string Email { get; set; } = "";
+
+        public string PhoneNumber { get; set; } = "";
+
+        public int TotalBookings { get; set; }
+
+        public DateTime? LastBookingAt { get; set; }
+
+        public bool AlreadyInBusiness { get; set; }
+    }
+}

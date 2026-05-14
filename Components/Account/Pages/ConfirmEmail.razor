@@ -1,0 +1,115 @@
+﻿@page "/Account/ConfirmEmail"
+
+@using System.Text
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using EasySystems.Bookings.Data.Entities
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>Bekräfta e-post | EasySystems</PageTitle>
+
+<div class="booking-auth-page clean-auth-page">
+    <section class="booking-auth-card">
+        <div class="booking-auth-brand">
+            <div class="booking-auth-logo">ES</div>
+            <div>
+                <strong>EasySystems</strong>
+                <span>Email verification</span>
+            </div>
+        </div>
+
+        <StatusMessage Message="@statusMessage" />
+
+        <div class="booking-auth-icon @statusClass">@statusIcon</div>
+
+        <div class="booking-auth-header">
+            <p class="booking-auth-eyebrow">@statusLabel</p>
+            <h1>@headline</h1>
+            <p>@description</p>
+        </div>
+
+        <div class="booking-auth-actions">
+            <a class="booking-auth-primary-link" href="/Account/Login">
+                Gå till inloggning
+            </a>
+
+            <a class="booking-auth-secondary-link" href="/Account/ResendEmailConfirmation">
+                Skicka verifieringsmail igen
+            </a>
+        </div>
+    </section>
+
+    <section class="booking-auth-visual">
+        <div>
+            <span>EasySystems</span>
+            <h2>Verified account.</h2>
+            <p>Secure access for bookings, calendar and account tools.</p>
+        </div>
+    </section>
+</div>
+
+@code {
+    private string? statusMessage;
+    private string statusLabel = "Kontrollerar";
+    private string headline = "Bekräftar din e-post";
+    private string description = "Vänta medan vi verifierar ditt konto.";
+    private string statusIcon = "⏳";
+    private string statusClass = "is-loading";
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? UserId { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? Code { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (UserId is null || Code is null)
+        {
+            RedirectManager.RedirectTo("");
+            return;
+        }
+
+        var user = await UserManager.FindByIdAsync(UserId);
+
+        if (user is null)
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
+
+            statusLabel = "Kunde inte verifiera";
+            headline = "Kontot hittades inte";
+            description = "Vi kunde inte hitta kontot som hör till länken.";
+            statusMessage = "Fel: användaren kunde inte hittas.";
+            statusIcon = "!";
+            statusClass = "is-error";
+            return;
+        }
+
+        var code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
+        var result = await UserManager.ConfirmEmailAsync(user, code);
+
+        if (result.Succeeded)
+        {
+            statusLabel = "Klart";
+            headline = "Din e-post är bekräftad";
+            description = "Du kan nu logga in och fortsätta.";
+            statusMessage = "Tack för att du bekräftade din e-post.";
+            statusIcon = "✓";
+            statusClass = "is-success";
+        }
+        else
+        {
+            statusLabel = "Länken fungerar inte";
+            headline = "Bekräftelsen misslyckades";
+            description = "Länken kan vara ogiltig eller ha gått ut.";
+            statusMessage = "Det gick inte att bekräfta din e-post.";
+            statusIcon = "!";
+            statusClass = "is-error";
+        }
+    }
+}

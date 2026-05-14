@@ -1,0 +1,148 @@
+﻿@page "/Account/ResendEmailConfirmation"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using EasySystems.Bookings.Data.Entities
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IEmailSender<ApplicationUser> EmailSender
+@inject NavigationManager NavigationManager
+
+<PageTitle>Skicka verifieringsmail igen | EasySystems</PageTitle>
+
+<div class="booking-auth-page clean-auth-page">
+    <section class="booking-auth-card">
+        <div class="booking-auth-brand">
+            <div class="booking-auth-logo">ES</div>
+            <div>
+                <strong>EasySystems</strong>
+                <span>Email verification</span>
+            </div>
+        </div>
+
+        <StatusMessage Message="@message" />
+
+        <EditForm Model="Input" FormName="resend-email-confirmation" OnValidSubmit="OnValidSubmitAsync" method="post">
+            <DataAnnotationsValidator />
+
+            <div class="booking-auth-header">
+                <p class="booking-auth-eyebrow">Ny verifieringslänk</p>
+                <h1>Skicka ny länk</h1>
+                <p>Ange din e-post så skickar vi en ny verifieringslänk.</p>
+            </div>
+
+            <ValidationSummary class="booking-auth-error-list" role="alert" />
+
+            <div class="booking-auth-field">
+                <label for="Input.Email">E-post</label>
+                <InputText @bind-Value="Input.Email"
+                           id="Input.Email"
+                           class="booking-auth-input"
+                           disabled="@isSubmitting"
+                           placeholder="namn@example.com" />
+                <ValidationMessage For="() => Input.Email" class="booking-auth-validation" />
+            </div>
+
+            <button type="submit" class="booking-auth-submit" disabled="@isSubmitting">
+                @if (isSubmitting)
+                {
+                    <span class="booking-auth-spinner"></span>
+                    <span>Skickar...</span>
+                }
+                else
+                {
+                    <span>Skicka verifieringsmail</span>
+                }
+            </button>
+
+            <div class="booking-auth-actions compact">
+                <a class="booking-auth-secondary-link" href="/Account/Login">Tillbaka</a>
+                <a class="booking-auth-secondary-link" href="/Account/Register">Skapa konto</a>
+            </div>
+        </EditForm>
+    </section>
+
+    <section class="booking-auth-visual">
+        <div>
+            <span>EasySystems</span>
+            <h2>Verify securely.</h2>
+            <p>A verified email keeps your booking account protected.</p>
+        </div>
+    </section>
+</div>
+
+@code {
+    private string? message;
+    private bool isSubmitting;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    [SupplyParameterFromQuery(Name = "email")]
+    private string? EmailFromQuery { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (!string.IsNullOrWhiteSpace(EmailFromQuery))
+        {
+            Input.Email = EmailFromQuery;
+        }
+    }
+
+    private async Task OnValidSubmitAsync()
+    {
+        if (isSubmitting)
+            return;
+
+        isSubmitting = true;
+        message = null;
+
+        var email = Input.Email.Trim();
+        var user = await UserManager.FindByEmailAsync(email);
+
+        if (user is null)
+        {
+            message = "Verifieringsmail skickat. Kontrollera din e-post.";
+            isSubmitting = false;
+            return;
+        }
+
+        if (await UserManager.IsEmailConfirmedAsync(user))
+        {
+            message = "Den här e-postadressen är redan verifierad. Du kan logga in nu.";
+            isSubmitting = false;
+            return;
+        }
+
+        var userId = await UserManager.GetUserIdAsync(user);
+        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+
+        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
+            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+            new Dictionary<string, object?>
+                {
+                    ["userId"] = userId,
+                    ["code"] = code
+                });
+
+        await EmailSender.SendConfirmationLinkAsync(
+            user,
+            email,
+            HtmlEncoder.Default.Encode(callbackUrl));
+
+        message = "Verifieringsmail skickat. Kontrollera din e-post.";
+        isSubmitting = false;
+    }
+
+    private sealed class InputModel
+    {
+        [Required(ErrorMessage = "E-post krävs.")]
+        [EmailAddress(ErrorMessage = "Ange en giltig e-postadress.")]
+        public string Email { get; set; } = "";
+    }
+}

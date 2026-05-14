@@ -1,0 +1,252 @@
+﻿@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Access
+@using EasySystems.Bookings.Data.Entities
+@using EasySystems.Bookings.Data.Identity
+
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.EntityFrameworkCore
+
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject BusinessAccessService BusinessAccessService
+@inject NavigationManager Navigation
+
+<nav class="booking-admin-navbar">
+    <div class="booking-admin-shell">
+
+        <a class="booking-admin-brand"
+           href="/admin/businesses"
+           @onclick="CloseMenu">
+
+            <span class="booking-admin-logo">
+                EB
+            </span>
+
+            <span class="booking-admin-brand-text">
+
+                <strong>
+                    EasyBookings
+                </strong>
+
+                @if (!string.IsNullOrWhiteSpace(businessName))
+                {
+                    <small>
+                        @businessName
+                    </small>
+                }
+                else
+                {
+                    <small>
+                        Admin Panel
+                    </small>
+                }
+
+            </span>
+
+        </a>
+
+        <button type="button"
+                class="booking-admin-toggle"
+                @onclick="ToggleMenu"
+                aria-label="Toggle menu">
+
+            <span></span>
+            <span></span>
+            <span></span>
+
+        </button>
+
+        <div class="booking-admin-links @(isOpen ? "open" : "")">
+
+            @if (permissions.IsPlatformSuperAdmin)
+            {
+                <NavLink href="/admin/businesses"
+                         Match="NavLinkMatch.All"
+                         @onclick="CloseMenu">
+
+                    Businesses
+
+                </NavLink>
+
+                <NavLink href="/admin/businesses/create"
+                         @onclick="CloseMenu">
+
+                    Create
+
+                </NavLink>
+            }
+
+            @if (BusinessId is not null && permissions.HasAccess)
+            {
+                <NavLink href="@($"/admin/businesses/{BusinessId}/overview")"
+                         @onclick="CloseMenu">
+
+                    Overview
+
+                </NavLink>
+
+                @if (permissions.CanManageServices)
+                {
+                    <NavLink href="@($"/admin/businesses/{BusinessId}/services")"
+                             @onclick="CloseMenu">
+
+                        Services
+
+                    </NavLink>
+                }
+
+                @if (permissions.CanManageStaff)
+                {
+                    <NavLink href="@($"/admin/businesses/{BusinessId}/staff")"
+                             @onclick="CloseMenu">
+
+                        Staff
+
+                    </NavLink>
+                }
+
+                @if (permissions.CanManageBookings)
+                {
+                    <NavLink href="@($"/admin/businesses/{BusinessId}/bookings")"
+                             @onclick="CloseMenu">
+
+                        Bookings
+
+                    </NavLink>
+                }
+
+                @if (permissions.CanManageCalendar)
+                {
+                    <NavLink href="@($"/admin/businesses/{BusinessId}/calendar")"
+                             @onclick="CloseMenu">
+
+                        Calendar
+
+                    </NavLink>
+                }
+
+                @if (permissions.IsPlatformSuperAdmin || permissions.Role == AppRoles.BusinessOwner || permissions.CanManageSettings)
+                {
+                    <NavLink href="@($"/admin/businesses/{BusinessId}/roles")"
+                             @onclick="CloseMenu">
+
+                        Manage roles
+
+                    </NavLink>
+                }
+
+                @if (permissions.CanManageSettings)
+                {
+                    <NavLink href="@($"/admin/businesses/edit/{BusinessId}")"
+                             @onclick="CloseMenu">
+
+                        Settings
+
+                    </NavLink>
+                }
+            }
+
+            @if (isAuthenticated)
+            {
+                <form action="/Account/Logout"
+                      method="post"
+                      class="booking-admin-logout">
+
+                    <AntiforgeryToken />
+
+                    <input type="hidden"
+                           name="returnUrl"
+                           value="@GetLogoutReturnUrl()" />
+
+                    <button type="submit">
+                        Logout
+                    </button>
+
+                </form>
+            }
+
+        </div>
+
+    </div>
+</nav>
+
+@code {
+
+    [Parameter]
+    public int? BusinessId { get; set; }
+
+    private bool isOpen;
+
+    private bool isAuthenticated;
+
+    private string? businessName;
+
+    private BusinessPermissionResult permissions = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isOpen = false;
+
+        isAuthenticated = false;
+
+        businessName = null;
+
+        permissions = new();
+
+        var authState =
+            await AuthStateProvider.GetAuthenticationStateAsync();
+
+        var principal = authState.User;
+
+        if (principal.Identity?.IsAuthenticated != true)
+        {
+            return;
+        }
+
+        isAuthenticated = true;
+
+        if (BusinessId is not null)
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            businessName = await db.Businesses
+                .AsNoTracking()
+                .Where(b => b.Id == BusinessId.Value)
+                .Select(b => b.Name)
+                .FirstOrDefaultAsync();
+
+            permissions = await BusinessAccessService
+                .GetPermissionsAsync(principal, BusinessId.Value);
+        }
+        else if (principal.IsInRole(AppRoles.PlatformSuperAdmin))
+        {
+            permissions = new BusinessPermissionResult
+                {
+                    HasAccess = true,
+                    IsPlatformSuperAdmin = true,
+                    Role = AppRoles.PlatformSuperAdmin,
+                    CanManageServices = true,
+                    CanManageStaff = true,
+                    CanManageBookings = true,
+                    CanManageCalendar = true,
+                    CanManageSettings = true
+                };
+        }
+    }
+
+    private void ToggleMenu()
+    {
+        isOpen = !isOpen;
+    }
+
+    private void CloseMenu()
+    {
+        isOpen = false;
+    }
+
+    private string GetLogoutReturnUrl()
+    {
+        return "";
+    }
+}

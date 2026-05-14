@@ -1,0 +1,229 @@
+﻿@page "/Account/Profile"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+
+@attribute [Authorize]
+
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Navigation
+
+<PageTitle>Min profil | EasySystems</PageTitle>
+
+<div class="booking-profile-page">
+    <div class="booking-profile-shell">
+        <section class="booking-profile-hero">
+            <div class="booking-profile-avatar">
+                @GetInitials()
+            </div>
+
+            <div>
+                <p class="booking-auth-eyebrow">Mitt konto</p>
+                <h1>@GetDisplayName()</h1>
+                <p>@currentUser?.Email</p>
+            </div>
+        </section>
+
+        <div class="booking-profile-grid">
+            <section class="booking-profile-card">
+                <h2>Profiluppgifter</h2>
+                <p>Uppdatera namn och telefonnummer som används för bokningar och kontoåtkomst.</p>
+
+                @if (isLoading)
+                {
+                    <div class="booking-profile-loading">Loading profile...</div>
+                }
+                else
+                {
+                    <EditForm Model="Input" OnValidSubmit="SaveProfile" FormName="customer-profile">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="booking-auth-error-list" />
+
+                        <div class="booking-auth-two-cols">
+                            <div class="booking-auth-field">
+                                <label>Förnamn</label>
+                                <InputText class="booking-auth-input" @bind-Value="Input.FirstName" />
+                                <ValidationMessage For="() => Input.FirstName" class="booking-auth-validation" />
+                            </div>
+
+                            <div class="booking-auth-field">
+                                <label>Efternamn</label>
+                                <InputText class="booking-auth-input" @bind-Value="Input.LastName" />
+                                <ValidationMessage For="() => Input.LastName" class="booking-auth-validation" />
+                            </div>
+                        </div>
+
+                        <div class="booking-auth-field">
+                            <label>E-post</label>
+                            <input class="booking-auth-input" value="@Input.Email" disabled />
+                            <small class="booking-profile-help">E-post ändras inte från den här sidan just nu.</small>
+                        </div>
+
+                        <div class="booking-auth-field">
+                            <label>Telefonnummer</label>
+                            <InputText class="booking-auth-input" @bind-Value="Input.PhoneNumber" />
+                            <ValidationMessage For="() => Input.PhoneNumber" class="booking-auth-validation" />
+                        </div>
+
+                        <button type="submit" class="booking-auth-submit">
+                            Spara profil
+                        </button>
+
+                        @if (!string.IsNullOrWhiteSpace(successMessage))
+                        {
+                            <div class="booking-profile-success">@successMessage</div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(errorMessage))
+                        {
+                            <div class="booking-profile-error">@errorMessage</div>
+                        }
+                    </EditForm>
+                }
+            </section>
+
+            <aside class="booking-profile-card booking-profile-side">
+                <h2>Konto</h2>
+
+                <div class="booking-profile-info-row">
+                    <span>E-post verifierad</span>
+                    <strong>@(currentUser?.EmailConfirmed == true ? "Ja" : "Nej")</strong>
+                </div>
+
+                <div class="booking-profile-info-row">
+                    <span>Telefon</span>
+                    <strong>@(string.IsNullOrWhiteSpace(currentUser?.PhoneNumber) ? "Inte tillagd" : currentUser.PhoneNumber)</strong>
+                </div>
+
+                <div class="booking-profile-info-row">
+                    <span>Skapad</span>
+                    <strong>@currentUser?.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")</strong>
+                </div>
+
+                <div class="booking-profile-actions">
+                    <button type="button" class="booking-auth-secondary-link" @onclick="GoToBookings">
+                        Mina bokningar
+                    </button>
+
+                    <button type="button" class="booking-auth-secondary-link" @onclick="GoBack">
+                        Till startsidan
+                    </button>
+                </div>
+            </aside>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationUser? currentUser;
+    private bool isLoading = true;
+
+    private string? successMessage;
+    private string? errorMessage;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        currentUser = await UserManager.GetUserAsync(authState.User);
+
+        if (currentUser is null)
+        {
+            Navigation.NavigateTo("/Account/Login", forceLoad: true);
+            return;
+        }
+
+        Input = new InputModel
+            {
+                FirstName = currentUser.FirstName ?? "",
+                LastName = currentUser.LastName ?? "",
+                Email = currentUser.Email ?? "",
+                PhoneNumber = currentUser.PhoneNumber ?? ""
+            };
+
+        isLoading = false;
+    }
+
+    private async Task SaveProfile()
+    {
+        successMessage = null;
+        errorMessage = null;
+
+        if (currentUser is null)
+            return;
+
+        currentUser.FirstName = Input.FirstName.Trim();
+        currentUser.LastName = Input.LastName.Trim();
+        currentUser.PhoneNumber = Input.PhoneNumber.Trim();
+
+        var result = await UserManager.UpdateAsync(currentUser);
+
+        if (!result.Succeeded)
+        {
+            errorMessage = string.Join(", ", result.Errors.Select(x => x.Description));
+            return;
+        }
+
+        successMessage = "Profilen har uppdaterats.";
+    }
+
+    private string GetDisplayName()
+    {
+        if (currentUser is null)
+            return "Min profil";
+
+        var fullName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
+
+        return !string.IsNullOrWhiteSpace(fullName)
+            ? fullName
+            : currentUser.Email ?? "Min profil";
+    }
+
+    private string GetInitials()
+    {
+        if (currentUser is null)
+            return "U";
+
+        if (!string.IsNullOrWhiteSpace(currentUser.FirstName) && !string.IsNullOrWhiteSpace(currentUser.LastName))
+            return $"{currentUser.FirstName[0]}{currentUser.LastName[0]}".ToUpper();
+
+        if (!string.IsNullOrWhiteSpace(currentUser.Email))
+            return currentUser.Email[0].ToString().ToUpper();
+
+        return "U";
+    }
+
+    private void GoToBookings()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private sealed class InputModel
+    {
+        [Required(ErrorMessage = "Förnamn krävs.")]
+        [StringLength(50, ErrorMessage = "Förnamn får inte vara längre än 50 tecken.")]
+        public string FirstName { get; set; } = "";
+
+        [Required(ErrorMessage = "Efternamn krävs.")]
+        [StringLength(50, ErrorMessage = "Efternamn får inte vara längre än 50 tecken.")]
+        public string LastName { get; set; } = "";
+
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Telefonnummer krävs.")]
+        [Phone(ErrorMessage = "Ange ett giltigt telefonnummer.")]
+        public string PhoneNumber { get; set; } = "";
+    }
+}

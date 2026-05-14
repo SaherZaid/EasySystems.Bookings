@@ -1,0 +1,298 @@
+﻿@page "/admin/businesses/{BusinessId:int}/overview"
+
+@using EasySystems.Bookings.Components.Admin
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.EntityFrameworkCore
+
+@inherits AdminBusinessPageBase
+
+@inject ApplicationDbContext Db
+
+<PageTitle>Business Overview</PageTitle>
+
+<AdminNavbar BusinessId="BusinessId" />
+
+@if (!Permissions.HasAccess)
+{
+    <p>Checking access...</p>
+}
+else if (business is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1>@business.Name - Overview</h1>
+            <p class="text-muted mb-0">
+                @business.BusinessType —
+                Open @business.OpeningTime.ToString(@"hh\:mm")
+                to @business.ClosingTime.ToString(@"hh\:mm")
+            </p>
+        </div>
+
+        @if (Permissions.CanManageBookings)
+        {
+            <a class="btn btn-primary"
+               href="/admin/businesses/@business.Id/bookings/create">
+                Create Booking
+            </a>
+        }
+    </div>
+
+    <div class="row g-3 mb-4">
+
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Today bookings</div>
+                    <div class="display-6 fw-bold">@todayBookingsCount</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Upcoming bookings</div>
+                    <div class="display-6 fw-bold">@upcomingBookingsCount</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Active services</div>
+                    <div class="display-6 fw-bold">@activeServicesCount</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Active staff</div>
+                    <div class="display-6 fw-bold">@activeStaffCount</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="row g-4">
+
+        <div class="col-12 col-xl-7">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <strong>Today schedule</strong>
+
+                    @if (Permissions.CanManageCalendar)
+                    {
+                        <a class="btn btn-sm btn-outline-info"
+                           href="/admin/businesses/@business.Id/calendar">
+                            Open Calendar
+                        </a>
+                    }
+                </div>
+
+                <div class="card-body">
+                    @if (!todayBookings.Any())
+                    {
+                        <div class="alert alert-info mb-0">
+                            No bookings today.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-column gap-3">
+                            @foreach (var booking in todayBookings)
+                            {
+                                <div class="border rounded-3 p-3 bg-light">
+                                    <div class="d-flex justify-content-between gap-3">
+                                        <div>
+                                            <div class="fw-semibold">
+                                                @booking.CustomerName
+                                            </div>
+
+                                            <div class="small text-muted">
+                                                @booking.Service.Name —
+                                                @booking.StaffMember.FullName
+                                            </div>
+
+                                            @if (!string.IsNullOrWhiteSpace(booking.CustomerPhone))
+                                            {
+                                                <div class="small text-muted">
+                                                    @booking.CustomerPhone
+                                                </div>
+                                            }
+                                        </div>
+
+                                        <div class="text-end">
+                                            <div class="fw-semibold">
+                                                @booking.StartTime.ToString("HH:mm")
+                                                -
+                                                @booking.EndTime.ToString("HH:mm")
+                                            </div>
+
+                                            @if (booking.Status == "Confirmed")
+                                            {
+                                                <span class="badge bg-success">Confirmed</span>
+                                            }
+                                            else if (booking.Status == "Pending")
+                                            {
+                                                <span class="badge bg-warning text-dark">Pending</span>
+                                            }
+                                            else if (booking.Status == "Cancelled")
+                                            {
+                                                <span class="badge bg-danger">Cancelled</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">@booking.Status</span>
+                                            }
+
+                                            @if (Permissions.CanManageBookings)
+                                            {
+                                                <div class="mt-2">
+                                                    <a class="btn btn-sm btn-outline-primary"
+                                                       href="/admin/bookings/edit/@booking.Id">
+                                                        Edit
+                                                    </a>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-5">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white">
+                    <strong>Quick actions</strong>
+                </div>
+
+                <div class="card-body d-grid gap-2">
+                    @if (Permissions.CanManageBookings)
+                    {
+                        <a class="btn btn-primary"
+                           href="/admin/businesses/@business.Id/bookings/create">
+                            Create Booking
+                        </a>
+
+                        <a class="btn btn-outline-success"
+                           href="/admin/businesses/@business.Id/bookings">
+                            View Bookings
+                        </a>
+                    }
+
+                    @if (Permissions.CanManageServices)
+                    {
+                        <a class="btn btn-outline-dark"
+                           href="/admin/businesses/@business.Id/services">
+                            Manage Services
+                        </a>
+                    }
+
+                    @if (Permissions.CanManageStaff)
+                    {
+                        <a class="btn btn-outline-secondary"
+                           href="/admin/businesses/@business.Id/staff">
+                            Manage Staff
+                        </a>
+                    }
+
+                    @if (Permissions.CanManageCalendar)
+                    {
+                        <a class="btn btn-outline-info"
+                           href="/admin/businesses/@business.Id/calendar">
+                            Open Calendar
+                        </a>
+                    }
+
+                    @if (Permissions.CanManageSettings)
+                    {
+                        <a class="btn btn-outline-primary"
+                           href="/admin/businesses/edit/@business.Id">
+                            Business Settings
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+
+    </div>
+}
+
+@code {
+    private Business? business;
+
+    private int todayBookingsCount;
+    private int upcomingBookingsCount;
+    private int activeServicesCount;
+    private int activeStaffCount;
+
+    private List<Booking> todayBookings = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        if (!Permissions.HasAccess)
+        {
+            return;
+        }
+
+        business = await Db.Businesses
+            .FirstOrDefaultAsync(b => b.Id == BusinessId);
+
+        if (business is null)
+        {
+            return;
+        }
+
+        var today = DateTime.Today;
+        var tomorrow = today.AddDays(1);
+        var now = DateTime.Now;
+
+        todayBookingsCount = await Db.Bookings
+            .CountAsync(b =>
+                b.BusinessId == BusinessId &&
+                b.StartTime >= today &&
+                b.StartTime < tomorrow &&
+                b.Status != "Cancelled");
+
+        upcomingBookingsCount = await Db.Bookings
+            .CountAsync(b =>
+                b.BusinessId == BusinessId &&
+                b.StartTime >= now &&
+                b.Status != "Cancelled");
+
+        activeServicesCount = await Db.Services
+            .CountAsync(s =>
+                s.BusinessId == BusinessId &&
+                s.IsActive);
+
+        activeStaffCount = await Db.StaffMembers
+            .CountAsync(s =>
+                s.BusinessId == BusinessId &&
+                s.IsActive);
+
+        todayBookings = await Db.Bookings
+            .Include(b => b.Service)
+            .Include(b => b.StaffMember)
+            .Where(b =>
+                b.BusinessId == BusinessId &&
+                b.StartTime >= today &&
+                b.StartTime < tomorrow)
+            .OrderBy(b => b.StartTime)
+            .ToListAsync();
+    }
+}

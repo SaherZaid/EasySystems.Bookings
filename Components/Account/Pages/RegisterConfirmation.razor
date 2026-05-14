@@ -1,0 +1,75 @@
+﻿@page "/Account/RegisterConfirmation"
+
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.AspNetCore.Identity
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>Bekräfta konto | EasySystems</PageTitle>
+
+<div class="booking-auth-page clean-auth-page">
+    <section class="booking-auth-card">
+        <div class="booking-auth-brand">
+            <div class="booking-auth-logo">ES</div>
+            <div>
+                <strong>EasySystems</strong>
+                <span>Account verification</span>
+            </div>
+        </div>
+
+        <StatusMessage Message="@statusMessage" />
+
+        <div class="booking-auth-icon is-success">✉</div>
+
+        <div class="booking-auth-header">
+            <p class="booking-auth-eyebrow">Nästan klart</p>
+            <h1>Kontrollera din e-post</h1>
+            <p>
+                Vi har skickat en verifieringslänk till din e-postadress.
+                Bekräfta kontot för att fortsätta.
+            </p>
+        </div>
+
+        <div class="booking-auth-actions">
+            <a class="booking-auth-primary-link" href="/Account/Login">
+                Gå till inloggning
+            </a>
+
+            <a class="booking-auth-secondary-link" href="/Account/ResendEmailConfirmation">
+                Skicka verifieringsmail igen
+            </a>
+        </div>
+    </section>
+
+    <section class="booking-auth-visual">
+        <div>
+            <span>EasySystems</span>
+            <h2>Smart booking management.</h2>
+            <p>Secure access for bookings, calendar and business tools.</p>
+        </div>
+    </section>
+</div>
+
+@code {
+    private string? statusMessage;
+
+    [SupplyParameterFromQuery]
+    private string? Email { get; set; }
+
+    protected async override Task OnInitializedAsync()
+    {
+        if (Email is null)
+        {
+            RedirectManager.RedirectTo("");
+            return;
+        }
+
+        var user = await UserManager.FindByEmailAsync(Email);
+
+        if (user is null)
+        {
+            statusMessage = "Kontot kunde inte hittas.";
+        }
+    }
+}
