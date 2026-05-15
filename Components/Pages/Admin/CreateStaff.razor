@@ -1,132 +1,250 @@
 ﻿@page "/admin/businesses/{BusinessId:int}/staff/create"
+@rendermode InteractiveServer
 
 @using EasySystems.Bookings.Components.Admin
 @using EasySystems.Bookings.Data
 @using EasySystems.Bookings.Data.Entities
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Hosting
+@using System.IO
 
 @inherits AdminBusinessPageBase
 
+@inject IWebHostEnvironment Environment
 @inject ApplicationDbContext Db
 
-<PageTitle>Create Staff Member</PageTitle>
+<PageTitle>Lägg till personal | EasySystems</PageTitle>
 
 <AdminNavbar BusinessId="BusinessId" />
 
 @if (!Permissions.HasAccess)
 {
-    <p>Checking access...</p>
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-loading-card">Kontrollerar åtkomst...</div>
+        </div>
+    </div>
 }
 else if (!Permissions.CanManageStaff)
 {
-    <div class="alert alert-danger">
-        You do not have permission to create staff members.
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-alert danger">
+                Du har inte behörighet att skapa personal.
+            </div>
+        </div>
     </div>
 }
 else if (business is null)
 {
-    <p>Loading...</p>
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-loading-card">Laddar personalsidan...</div>
+        </div>
+    </div>
 }
 else
 {
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1>Create Staff Member</h1>
+    <div class="admin-page admin-staff-form-page">
+        <div class="admin-shell">
 
-            <p class="text-muted mb-0">
-                @business.Name —
-                @business.OpeningTime.ToString(@"hh\:mm")
-                to
-                @business.ClosingTime.ToString(@"hh\:mm")
-            </p>
-        </div>
-
-        <a class="btn btn-outline-secondary"
-           href="/admin/businesses/@BusinessId/staff">
-            Back
-        </a>
-    </div>
-
-    <EditForm Model="staffMember" OnValidSubmit="CreateAsync">
-        <DataAnnotationsValidator />
-        <ValidationSummary />
-
-        <div class="card shadow-sm border-0">
-            <div class="card-body">
-
-                <div class="mb-3">
-                    <label class="form-label">Full name</label>
-                    <InputText class="form-control" @bind-Value="staffMember.FullName" />
+            <section class="admin-hero">
+                <div>
+                    <p class="admin-eyebrow">Ny personal</p>
+                    <h1>Lägg till personal</h1>
+                    <p>Skapa en person som kan visas online och ta emot bokningar.</p>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label">Email</label>
-                    <InputText class="form-control" @bind-Value="staffMember.Email" />
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Phone</label>
-                    <InputText class="form-control" @bind-Value="staffMember.Phone" />
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Specialization</label>
-                    <InputText class="form-control" @bind-Value="staffMember.Specialization" />
-                    <small class="text-muted">Example: Fade specialist, Hair color, Nails, Massage</small>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Bio</label>
-                    <InputTextArea class="form-control"
-                                   rows="4"
-                                   @bind-Value="staffMember.Bio" />
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Image URL</label>
-                    <InputText class="form-control" @bind-Value="staffMember.ImageUrl" />
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Sort order</label>
-                    <InputNumber class="form-control" @bind-Value="staffMember.SortOrder" />
-                </div>
-
-                <div class="form-check mb-3">
-                    <InputCheckbox class="form-check-input" @bind-Value="staffMember.AllowOnlineBookings" />
-                    <label class="form-check-label">
-                        Allow online bookings
-                    </label>
-                </div>
-
-                <div class="form-check mb-4">
-                    <InputCheckbox class="form-check-input" @bind-Value="staffMember.IsActive" />
-                    <label class="form-check-label">
-                        Active
-                    </label>
-                </div>
-
-                @if (!string.IsNullOrWhiteSpace(errorMessage))
-                {
-                    <div class="alert alert-danger">
-                        @errorMessage
-                    </div>
-                }
-
-                <div class="d-flex gap-2 flex-wrap">
-                    <button class="btn btn-primary" type="submit">
-                        Create Staff Member
-                    </button>
-
-                    <a class="btn btn-outline-dark"
-                       href="/admin/businesses/@BusinessId/staff">
-                        Cancel
+                <div class="admin-hero-actions">
+                    <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/staff">
+                        Tillbaka
                     </a>
                 </div>
+            </section>
+
+            <div class="staff-form-grid">
+
+                <section class="staff-form-card">
+                    <EditForm Model="staffMember" OnValidSubmit="CreateAsync">
+                        <DataAnnotationsValidator />
+
+                        <div class="staff-form-section">
+                            <h2>Grundinformation</h2>
+
+                            <label>Fullständigt namn</label>
+                            <InputText class="settings-input" @bind-Value="staffMember.FullName" placeholder="Exempel: Lina Andersson" />
+
+                            <label>Specialisering</label>
+                            <InputText class="settings-input" @bind-Value="staffMember.Specialization" placeholder="Exempel: Hårfärg, naglar, massage" />
+
+                            <label>Presentation</label>
+                            <InputTextArea class="settings-input settings-textarea"
+                                           rows="5"
+                                           @bind-Value="staffMember.Bio"
+                                           placeholder="Kort text om personen, erfarenhet eller specialitet..." />
+                        </div>
+
+                        <div class="staff-form-section">
+                            <h2>Kontakt</h2>
+
+                            <div class="settings-two-cols">
+                                <div>
+                                    <label>E-post</label>
+                                    <InputText class="settings-input" @bind-Value="staffMember.Email" />
+                                </div>
+
+                                <div>
+                                    <label>Telefon</label>
+                                    <InputText class="settings-input" @bind-Value="staffMember.Phone" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="staff-form-section">
+                            <h2>Bild och sortering</h2>
+
+                            <div class="staff-image-upload-section">
+                                <label>Profilbild</label>
+
+                                @if (!string.IsNullOrWhiteSpace(staffMember.ImageUrl))
+                                {
+                                    <div class="staff-upload-preview">
+                                        <img src="@staffMember.ImageUrl" alt="@staffMember.FullName" />
+
+                                        <button type="button"
+                                                class="staff-remove-image-btn"
+                                                @onclick="RemoveImage">
+                                            Ta bort bild
+                                        </button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="staff-upload-empty">
+                                        <span>@GetInitials()</span>
+
+                                        <div>
+                                            <strong>Ingen bild uppladdad</strong>
+                                            <p>Ladda upp JPG, PNG eller WEBP</p>
+                                        </div>
+                                    </div>
+                                }
+
+                                <label class="staff-upload-box">
+                                    <InputFile OnChange="UploadImage"
+                                               accept="image/png,image/jpeg,image/webp"
+                                               class="staff-upload-input" />
+
+                                    <div class="staff-upload-content">
+                                        <strong>Ladda upp bild</strong>
+                                        <span>Klicka här eller välj en fil</span>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <label>Sortering</label>
+                            <InputNumber class="settings-input" @bind-Value="staffMember.SortOrder" />
+                            <small>Lägre nummer visas först.</small>
+                        </div>
+
+                        <div class="staff-form-section">
+                            <h2>Synlighet</h2>
+
+                            <div class="settings-switch-grid">
+                                <label class="settings-switch">
+                                    <InputCheckbox @bind-Value="staffMember.AllowOnlineBookings" />
+                                    <span>
+                                        <strong>Onlinebokning</strong>
+                                        <small>Kunder kan välja denna person vid bokning.</small>
+                                    </span>
+                                </label>
+
+                                <label class="settings-switch">
+                                    <InputCheckbox @bind-Value="staffMember.IsActive" />
+                                    <span>
+                                        <strong>Aktiv personal</strong>
+                                        <small>Personen är aktiv i systemet.</small>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(errorMessage))
+                        {
+                            <div class="settings-alert error">@errorMessage</div>
+                        }
+
+                        <div class="settings-actions">
+                            <button class="admin-primary-btn" type="submit" disabled="@isSaving">
+                                @(isSaving ? "Skapar..." : "Lägg till personal")
+                            </button>
+
+                            <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/staff">
+                                Avbryt
+                            </a>
+                        </div>
+                    </EditForm>
+                </section>
+
+                <aside class="staff-preview-card">
+                    <p class="admin-eyebrow">Förhandsvisning</p>
+
+                    <div class="staff-preview-box">
+                        <div class="staff-preview-image">
+                            @if (!string.IsNullOrWhiteSpace(staffMember.ImageUrl))
+                            {
+                                <img src="@staffMember.ImageUrl" alt="@staffMember.FullName" />
+                            }
+                            else
+                            {
+                                <span>@GetInitials()</span>
+                            }
+                        </div>
+
+                        <div class="staff-preview-content">
+                            <div class="staff-preview-pills">
+                                <span class="staff-status-pill @(staffMember.IsActive ? "active" : "inactive")">
+                                    @(staffMember.IsActive ? "Aktiv" : "Inaktiv")
+                                </span>
+
+                                <span class="staff-online-pill @(staffMember.AllowOnlineBookings ? "online" : "hidden")">
+                                    @(staffMember.AllowOnlineBookings ? "Onlinebokning" : "Dold")
+                                </span>
+                            </div>
+
+                            <h2>@DisplayOrFallback(staffMember.FullName, "Personalens namn")</h2>
+                            <p class="staff-preview-specialization">
+                                @DisplayOrFallback(staffMember.Specialization, "Specialisering")
+                            </p>
+
+                            <p>
+                                @DisplayOrFallback(staffMember.Bio, "Här visas en kort presentation av personen.")
+                            </p>
+                        </div>
+
+                        <div class="staff-preview-meta">
+                            <div>
+                                <span>E-post</span>
+                                <strong>@DisplayOrFallback(staffMember.Email, "Saknas")</strong>
+                            </div>
+
+                            <div>
+                                <span>Telefon</span>
+                                <strong>@DisplayOrFallback(staffMember.Phone, "Saknas")</strong>
+                            </div>
+
+                            <div>
+                                <span>Sortering</span>
+                                <strong>@staffMember.SortOrder</strong>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
 
             </div>
         </div>
-    </EditForm>
+    </div>
 }
 
 @code {
@@ -135,22 +253,79 @@ else
     private StaffMember staffMember = new()
         {
             IsActive = true,
-            AllowOnlineBookings = true
+            AllowOnlineBookings = true,
+            SortOrder = 0
         };
 
     private string? errorMessage;
+    private bool isSaving;
+
+    private const long MaxFileSize = 5 * 1024 * 1024;
+
+    private async Task UploadImage(InputFileChangeEventArgs e)
+    {
+        errorMessage = null;
+
+        var file = e.File;
+
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+
+        var extension = Path
+            .GetExtension(file.Name)
+            .ToLowerInvariant();
+
+        if (!allowedExtensions.Contains(extension))
+        {
+            errorMessage = "Endast JPG, PNG och WEBP är tillåtna.";
+            return;
+        }
+
+        if (file.Size > MaxFileSize)
+        {
+            errorMessage = "Bilden måste vara mindre än 5 MB.";
+            return;
+        }
+
+        var uploadFolder = Path.Combine(
+            Environment.WebRootPath,
+            "uploads",
+            "staff");
+
+        Directory.CreateDirectory(uploadFolder);
+
+        var fileName = $"{Guid.NewGuid()}{extension}";
+
+        var fullPath = Path.Combine(uploadFolder, fileName);
+
+        var relativePath = $"/uploads/staff/{fileName}";
+
+        await using var readStream =
+            file.OpenReadStream(MaxFileSize);
+
+        await using var writeStream =
+            File.Create(fullPath);
+
+        await readStream.CopyToAsync(writeStream);
+
+        staffMember.ImageUrl = relativePath;
+    }
+
+    private void RemoveImage()
+    {
+        if (staffMember is not null)
+        {
+            staffMember.ImageUrl = null;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
 
         if (!Permissions.HasAccess || !Permissions.CanManageStaff)
-        {
             return;
-        }
 
-        business = await Db.Businesses
-            .FirstOrDefaultAsync(b => b.Id == BusinessId);
+        business = await Db.Businesses.FirstOrDefaultAsync(b => b.Id == BusinessId);
 
         if (business is null)
         {
@@ -164,12 +339,13 @@ else
     private async Task CreateAsync()
     {
         errorMessage = null;
+        isSaving = true;
 
-        staffMember.FullName = staffMember.FullName.Trim();
+        NormalizeStaff();
 
-        if (string.IsNullOrWhiteSpace(staffMember.FullName))
+        if (!ValidateStaff())
         {
-            errorMessage = "Full name is required.";
+            isSaving = false;
             return;
         }
 
@@ -180,5 +356,44 @@ else
         await Db.SaveChangesAsync();
 
         Navigation.NavigateTo($"/admin/businesses/{BusinessId}/staff");
+    }
+
+    private void NormalizeStaff()
+    {
+        staffMember.FullName = staffMember.FullName.Trim();
+        staffMember.Email = staffMember.Email?.Trim();
+        staffMember.Phone = staffMember.Phone?.Trim();
+        staffMember.Specialization = staffMember.Specialization?.Trim();
+        staffMember.Bio = staffMember.Bio?.Trim();
+        staffMember.ImageUrl = staffMember.ImageUrl?.Trim();
+    }
+
+    private bool ValidateStaff()
+    {
+        if (string.IsNullOrWhiteSpace(staffMember.FullName))
+        {
+            errorMessage = "Fullständigt namn krävs.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private string GetInitials()
+    {
+        if (string.IsNullOrWhiteSpace(staffMember.FullName))
+            return "EB";
+
+        var parts = staffMember.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+
+        return staffMember.FullName[0].ToString().ToUpper();
+    }
+
+    private static string DisplayOrFallback(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 }

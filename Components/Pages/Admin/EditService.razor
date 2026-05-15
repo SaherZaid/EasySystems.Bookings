@@ -1,4 +1,5 @@
 ﻿@page "/admin/businesses/{BusinessId:int}/services/edit/{Id:int}"
+@rendermode InteractiveServer
 
 @using EasySystems.Bookings.Components.Admin
 @using EasySystems.Bookings.Data
@@ -9,110 +10,174 @@
 
 @inject ApplicationDbContext Db
 
-<PageTitle>Edit Service</PageTitle>
+<PageTitle>Redigera tjänst | EasySystems</PageTitle>
 
 <AdminNavbar BusinessId="BusinessId" />
 
 @if (!Permissions.HasAccess)
 {
-    <p>Checking access...</p>
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-loading-card">Kontrollerar åtkomst...</div>
+        </div>
+    </div>
 }
 else if (!Permissions.CanManageServices)
 {
-    <div class="alert alert-danger">
-        You do not have permission to manage services.
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-alert danger">
+                Du har inte behörighet att hantera tjänster.
+            </div>
+        </div>
     </div>
 }
 else if (service is null || business is null)
 {
-    <p>Loading...</p>
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-loading-card">Laddar tjänsten...</div>
+        </div>
+    </div>
 }
 else
 {
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="admin-page admin-service-form-page">
+        <div class="admin-shell">
 
-        <div>
-            <h1>Edit Service</h1>
-
-            <p class="text-muted mb-0">
-                @business.Name —
-                @business.OpeningTime.ToString(@"hh\:mm")
-                to
-                @business.ClosingTime.ToString(@"hh\:mm")
-            </p>
-        </div>
-
-        <a class="btn btn-outline-secondary"
-           href="/admin/businesses/@BusinessId/services">
-            Back
-        </a>
-
-    </div>
-
-    <EditForm Model="service" OnValidSubmit="SaveAsync">
-        <DataAnnotationsValidator />
-        <ValidationSummary />
-
-        <div class="card shadow-sm border-0">
-            <div class="card-body">
-
-                <div class="mb-3">
-                    <label class="form-label">Service name</label>
-                    <InputText class="form-control" @bind-Value="service.Name" />
+            <section class="admin-hero">
+                <div>
+                    <p class="admin-eyebrow">Redigera tjänst</p>
+                    <h1>@service.Name</h1>
+                    <p>Uppdatera namn, beskrivning, pris, tid och synlighet.</p>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label">Description</label>
-                    <InputTextArea class="form-control"
-                                   rows="4"
-                                   @bind-Value="service.Description" />
-                </div>
-
-                <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Price</label>
-                        <InputNumber class="form-control" @bind-Value="service.Price" />
-                    </div>
-
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Duration (minutes)</label>
-                        <InputNumber class="form-control" @bind-Value="service.DurationMinutes" />
-                    </div>
-
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Sort order</label>
-                        <InputNumber class="form-control" @bind-Value="service.SortOrder" />
-                    </div>
-                </div>
-
-                <div class="form-check mb-4">
-                    <InputCheckbox class="form-check-input" @bind-Value="service.IsActive" />
-                    <label class="form-check-label">
-                        Active
-                    </label>
-                </div>
-
-                @if (!string.IsNullOrWhiteSpace(errorMessage))
-                {
-                    <div class="alert alert-danger">
-                        @errorMessage
-                    </div>
-                }
-
-                <div class="d-flex gap-2 flex-wrap">
-                    <button class="btn btn-primary" type="submit">
-                        Save Changes
-                    </button>
-
-                    <a class="btn btn-outline-dark"
-                       href="/admin/businesses/@BusinessId/services">
-                        Cancel
+                <div class="admin-hero-actions">
+                    <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/services">
+                        Tillbaka
                     </a>
                 </div>
+            </section>
+
+            <div class="service-form-grid">
+
+                <section class="service-form-card">
+                    <EditForm Model="service" OnValidSubmit="SaveAsync">
+                        <DataAnnotationsValidator />
+
+                        <div class="service-form-section">
+                            <h2>Grundinformation</h2>
+
+                            <label>Tjänstens namn</label>
+                            <InputText class="settings-input" @bind-Value="service.Name" />
+
+                            <label>Beskrivning</label>
+                            <InputTextArea class="settings-input settings-textarea"
+                                           rows="5"
+                                           @bind-Value="service.Description" />
+                        </div>
+
+                        <div class="service-form-section">
+                            <h2>Pris och tid</h2>
+
+                            <div class="settings-three-cols">
+                                <div>
+                                    <label>Pris</label>
+                                    <InputNumber class="settings-input" @bind-Value="service.Price" />
+                                </div>
+
+                                <div>
+                                    <label>Tid i minuter</label>
+                                    <InputNumber class="settings-input" @bind-Value="service.DurationMinutes" />
+                                </div>
+
+                                <div>
+                                    <label>Sortering</label>
+                                    <InputNumber class="settings-input" @bind-Value="service.SortOrder" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="service-form-section">
+                            <h2>Synlighet</h2>
+
+                            <label class="settings-switch">
+                                <InputCheckbox @bind-Value="service.IsActive" />
+                                <span>
+                                    <strong>Aktiv tjänst</strong>
+                                    <small>Tjänsten visas för kunder och kan bokas.</small>
+                                </span>
+                            </label>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(errorMessage))
+                        {
+                            <div class="settings-alert error">@errorMessage</div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(successMessage))
+                        {
+                            <div class="settings-alert success">@successMessage</div>
+                        }
+
+                        <div class="settings-actions">
+                            <button class="admin-primary-btn" type="submit" disabled="@isSaving">
+                                @(isSaving ? "Sparar..." : "Spara ändringar")
+                            </button>
+
+                            <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/services">
+                                Avbryt
+                            </a>
+                        </div>
+                    </EditForm>
+                </section>
+
+                <aside class="service-preview-card">
+                    <p class="admin-eyebrow">Förhandsvisning</p>
+
+                    <div class="service-preview-box">
+                        <div>
+                            <span class="service-preview-pill @(service.IsActive ? "active" : "inactive")">
+                                @(service.IsActive ? "Aktiv" : "Inaktiv")
+                            </span>
+
+                            <h2>@DisplayOrFallback(service.Name, "Tjänstens namn")</h2>
+
+                            <p>
+                                @DisplayOrFallback(service.Description, "Här visas en kort beskrivning av tjänsten så kunden förstår vad som ingår.")
+                            </p>
+                        </div>
+
+                        <div class="service-preview-meta">
+                            <div>
+                                <span>Pris</span>
+                                <strong>@service.Price.ToString("0.00") kr</strong>
+                            </div>
+
+                            <div>
+                                <span>Tid</span>
+                                <strong>@service.DurationMinutes min</strong>
+                            </div>
+
+                            <div>
+                                <span>Sortering</span>
+                                <strong>@service.SortOrder</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="service-help-card">
+                        <h3>Verksamhet</h3>
+                        <p>@business.Name</p>
+
+                        <h3>Senast uppdaterad</h3>
+                        <p>@(service.UpdatedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "Inte uppdaterad ännu")</p>
+                    </div>
+                </aside>
 
             </div>
         </div>
-    </EditForm>
+    </div>
 }
 
 @code {
@@ -122,15 +187,15 @@ else
     private Service? service;
     private Business? business;
     private string? errorMessage;
+    private string? successMessage;
+    private bool isSaving;
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
 
         if (!Permissions.HasAccess || !Permissions.CanManageServices)
-        {
             return;
-        }
 
         business = await Db.Businesses
             .FirstOrDefaultAsync(b => b.Id == BusinessId);
@@ -142,49 +207,67 @@ else
         }
 
         service = await Db.Services
-            .FirstOrDefaultAsync(s =>
-                s.Id == Id &&
-                s.BusinessId == BusinessId);
+            .FirstOrDefaultAsync(s => s.Id == Id && s.BusinessId == BusinessId);
 
         if (service is null)
         {
             Navigation.NavigateTo($"/admin/businesses/{BusinessId}/services");
-            return;
         }
     }
 
     private async Task SaveAsync()
     {
-        errorMessage = null;
-
         if (service is null)
-        {
             return;
-        }
+
+        errorMessage = null;
+        successMessage = null;
+        isSaving = true;
 
         service.Name = service.Name.Trim();
+        service.Description = service.Description?.Trim();
         service.UpdatedAt = DateTime.UtcNow;
 
-        if (string.IsNullOrWhiteSpace(service.Name))
+        if (!ValidateService())
         {
-            errorMessage = "Service name is required.";
-            return;
-        }
-
-        if (service.DurationMinutes <= 0)
-        {
-            errorMessage = "Duration must be greater than 0 minutes.";
-            return;
-        }
-
-        if (service.Price < 0)
-        {
-            errorMessage = "Price cannot be negative.";
+            isSaving = false;
             return;
         }
 
         await Db.SaveChangesAsync();
 
-        Navigation.NavigateTo($"/admin/businesses/{BusinessId}/services");
+        successMessage = "Tjänsten har sparats.";
+        isSaving = false;
+    }
+
+    private bool ValidateService()
+    {
+        if (service is null)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(service.Name))
+        {
+            errorMessage = "Tjänstens namn krävs.";
+            return false;
+        }
+
+        if (service.DurationMinutes <= 0)
+        {
+            errorMessage = "Tiden måste vara större än 0 minuter.";
+            return false;
+        }
+
+        if (service.Price < 0)
+        {
+            errorMessage = "Priset kan inte vara negativt.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static string DisplayOrFallback(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 }

@@ -1,4 +1,5 @@
 ﻿@page "/admin/businesses/{BusinessId:int}/services"
+@rendermode InteractiveServer
 
 @using EasySystems.Bookings.Components.Admin
 @using EasySystems.Bookings.Data
@@ -9,138 +10,147 @@
 
 @inject ApplicationDbContext Db
 
-<PageTitle>Business Services</PageTitle>
+<PageTitle>Tjänster | EasySystems</PageTitle>
 
 <AdminNavbar BusinessId="BusinessId" />
 
 @if (!Permissions.HasAccess)
 {
-    <p>Checking access...</p>
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-loading-card">Kontrollerar åtkomst...</div>
+        </div>
+    </div>
 }
 else if (!Permissions.CanManageServices)
 {
-    <div class="alert alert-danger">
-        You do not have permission to manage services.
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-alert danger">
+                Du har inte behörighet att hantera tjänster.
+            </div>
+        </div>
     </div>
 }
 else if (business is null)
 {
-    <p>Loading...</p>
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-loading-card">Laddar tjänster...</div>
+        </div>
+    </div>
 }
 else
 {
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="admin-page admin-services-page">
+        <div class="admin-shell">
 
-        <div>
-            <h1>@business.Name - Services</h1>
+            <section class="admin-hero">
+                <div>
+                    <p class="admin-eyebrow">Tjänster</p>
+                    <h1>@business.Name</h1>
+                    <p>Hantera priser, tider, sortering och vilka tjänster som kunder kan boka.</p>
+                </div>
 
-            <p class="text-muted mb-0">
-                @business.BusinessType —
-                Open @business.OpeningTime.ToString(@"hh\:mm")
-                to @business.ClosingTime.ToString(@"hh\:mm")
-            </p>
-        </div>
+                <div class="admin-hero-actions">
+                    <a class="admin-primary-btn" href="/admin/businesses/@BusinessId/services/create">
+                        + Skapa tjänst
+                    </a>
+                </div>
+            </section>
 
-        <a class="btn btn-primary"
-           href="/admin/businesses/@business.Id/services/create">
-            Create Service
-        </a>
+            <section class="services-stats-grid">
+                <div class="services-stat-card">
+                    <span>Totalt</span>
+                    <strong>@services.Count</strong>
+                </div>
 
-    </div>
+                <div class="services-stat-card">
+                    <span>Aktiva</span>
+                    <strong>@services.Count(x => x.IsActive)</strong>
+                </div>
 
-    @if (!services.Any())
-    {
-        <div class="alert alert-info">
-            No services found.
-        </div>
-    }
-    else
-    {
-        <div class="table-responsive">
-            <table class="table table-striped align-middle">
+                <div class="services-stat-card">
+                    <span>Inaktiva</span>
+                    <strong>@services.Count(x => !x.IsActive)</strong>
+                </div>
 
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Description</th>
-                        <th>Duration</th>
-                        <th>Price</th>
-                        <th>Status</th>
-                        <th>Created</th>
-                        <th class="text-end">Actions</th>
-                    </tr>
-                </thead>
+                <div class="services-stat-card">
+                    <span>Snittid</span>
+                    <strong>@GetAverageDuration() min</strong>
+                </div>
+            </section>
 
-                <tbody>
+            @if (!services.Any())
+            {
+                <section class="admin-empty-state">
+                    <h2>Inga tjänster ännu</h2>
+                    <p>Skapa din första tjänst så att kunder kan boka tider online.</p>
+
+                    <a class="admin-primary-btn" href="/admin/businesses/@BusinessId/services/create">
+                        Skapa första tjänsten
+                    </a>
+                </section>
+            }
+            else
+            {
+                <section class="services-grid">
                     @foreach (var service in services)
                     {
-                        <tr>
-                            <td>
-                                <div class="fw-semibold">
-                                    @service.Name
+                        <article class="service-list-card @(service.IsActive ? "active" : "inactive")">
+                            <div class="service-list-card-top">
+                                <span class="service-status-pill @(service.IsActive ? "active" : "inactive")">
+                                    @(service.IsActive ? "Aktiv" : "Inaktiv")
+                                </span>
+
+                                <span class="service-sort-pill">
+                                    Sortering @service.SortOrder
+                                </span>
+                            </div>
+
+                            <h2>@service.Name</h2>
+
+                            @if (!string.IsNullOrWhiteSpace(service.Description))
+                            {
+                                <p>@service.Description</p>
+                            }
+                            else
+                            {
+                                <p class="muted">Ingen beskrivning tillagd.</p>
+                            }
+
+                            <div class="service-list-meta">
+                                <div>
+                                    <span>Tid</span>
+                                    <strong>@service.DurationMinutes min</strong>
                                 </div>
-                            </td>
 
-                            <td style="max-width: 320px;">
-                                @if (!string.IsNullOrWhiteSpace(service.Description))
-                                {
-                                    @service.Description
-                                }
-                                else
-                                {
-                                    <span class="text-muted">
-                                        No description
-                                    </span>
-                                }
-                            </td>
+                                <div>
+                                    <span>Pris</span>
+                                    <strong>@service.Price.ToString("0.00") kr</strong>
+                                </div>
 
-                            <td>
-                                @service.DurationMinutes min
-                            </td>
+                                <div>
+                                    <span>Skapad</span>
+                                    <strong>@service.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")</strong>
+                                </div>
+                            </div>
 
-                            <td>
-                                @service.Price.ToString("0.00") kr
-                            </td>
-
-                            <td>
-                                @if (service.IsActive)
-                                {
-                                    <span class="badge bg-success">
-                                        Active
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-secondary">
-                                        Inactive
-                                    </span>
-                                }
-                            </td>
-
-                            <td>
-                                @service.CreatedAt
-                                .ToLocalTime()
-                                .ToString("yyyy-MM-dd HH:mm")
-                            </td>
-
-                            <td class="text-end">
-                                <a class="btn btn-sm btn-outline-primary"
-                                   href="/admin/businesses/@BusinessId/services/edit/@service.Id">
-                                    Edit
+                            <div class="service-list-actions">
+                                <a href="/admin/businesses/@BusinessId/services/edit/@service.Id">
+                                    Redigera
                                 </a>
-                            </td>
-                        </tr>
+                            </div>
+                        </article>
                     }
-                </tbody>
-
-            </table>
+                </section>
+            }
         </div>
-    }
+    </div>
 }
 
 @code {
     private Business? business;
-
     private List<Service> services = [];
 
     protected override async Task OnInitializedAsync()
@@ -148,22 +158,26 @@ else
         await base.OnInitializedAsync();
 
         if (!Permissions.HasAccess || !Permissions.CanManageServices)
-        {
             return;
-        }
 
         business = await Db.Businesses
             .FirstOrDefaultAsync(b => b.Id == BusinessId);
 
         if (business is null)
-        {
             return;
-        }
 
         services = await Db.Services
             .Where(s => s.BusinessId == BusinessId)
             .OrderBy(s => s.SortOrder)
             .ThenBy(s => s.Name)
             .ToListAsync();
+    }
+
+    private int GetAverageDuration()
+    {
+        if (!services.Any())
+            return 0;
+
+        return (int)Math.Round(services.Average(x => x.DurationMinutes));
     }
 }

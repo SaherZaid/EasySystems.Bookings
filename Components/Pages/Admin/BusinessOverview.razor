@@ -1,233 +1,210 @@
 ﻿@page "/admin/businesses/{BusinessId:int}/overview"
+@rendermode InteractiveServer
 
 @using EasySystems.Bookings.Components.Admin
 @using EasySystems.Bookings.Data
 @using EasySystems.Bookings.Data.Entities
 @using Microsoft.EntityFrameworkCore
+@using System.Globalization
 
 @inherits AdminBusinessPageBase
 
 @inject ApplicationDbContext Db
 
-<PageTitle>Business Overview</PageTitle>
+<PageTitle>Översikt | EasySystems</PageTitle>
 
 <AdminNavbar BusinessId="BusinessId" />
 
 @if (!Permissions.HasAccess)
 {
-    <p>Checking access...</p>
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-loading-card">Kontrollerar åtkomst...</div>
+        </div>
+    </div>
 }
 else if (business is null)
 {
-    <p>Loading...</p>
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-loading-card">Laddar översikt...</div>
+        </div>
+    </div>
 }
 else
 {
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1>@business.Name - Overview</h1>
-            <p class="text-muted mb-0">
-                @business.BusinessType —
-                Open @business.OpeningTime.ToString(@"hh\:mm")
-                to @business.ClosingTime.ToString(@"hh\:mm")
-            </p>
-        </div>
+    <div class="admin-page admin-overview-page">
+        <div class="admin-shell">
 
-        @if (Permissions.CanManageBookings)
-        {
-            <a class="btn btn-primary"
-               href="/admin/businesses/@business.Id/bookings/create">
-                Create Booking
-            </a>
-        }
-    </div>
-
-    <div class="row g-3 mb-4">
-
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body">
-                    <div class="text-muted small">Today bookings</div>
-                    <div class="display-6 fw-bold">@todayBookingsCount</div>
+            <section class="admin-hero overview-hero">
+                <div>
+                    <p class="admin-eyebrow">Översikt</p>
+                    <h1>@business.Name</h1>
+                    <p>@GetBusinessSubtitle()</p>
                 </div>
-            </div>
-        </div>
 
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body">
-                    <div class="text-muted small">Upcoming bookings</div>
-                    <div class="display-6 fw-bold">@upcomingBookingsCount</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body">
-                    <div class="text-muted small">Active services</div>
-                    <div class="display-6 fw-bold">@activeServicesCount</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body">
-                    <div class="text-muted small">Active staff</div>
-                    <div class="display-6 fw-bold">@activeStaffCount</div>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <div class="row g-4">
-
-        <div class="col-12 col-xl-7">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <strong>Today schedule</strong>
+                <div class="admin-hero-actions">
+                    @if (Permissions.CanManageBookings)
+                    {
+                        <a class="admin-primary-btn" href="/admin/businesses/@BusinessId/bookings/create">
+                            + Skapa bokning
+                        </a>
+                    }
 
                     @if (Permissions.CanManageCalendar)
                     {
-                        <a class="btn btn-sm btn-outline-info"
-                           href="/admin/businesses/@business.Id/calendar">
-                            Open Calendar
+                        <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/calendar">
+                            Kalender
                         </a>
                     }
                 </div>
+            </section>
 
-                <div class="card-body">
+            <section class="overview-stats-grid">
+                <div class="overview-stat-card">
+                    <span>Dagens bokningar</span>
+                    <strong>@todayBookingsCount</strong>
+                    <small>@DateTime.Today.ToString("dddd d MMMM", SwedishCulture)</small>
+                </div>
+
+                <div class="overview-stat-card">
+                    <span>Kommande bokningar</span>
+                    <strong>@upcomingBookingsCount</strong>
+                    <small>Från och med nu</small>
+                </div>
+
+                <div class="overview-stat-card">
+                    <span>Aktiva tjänster</span>
+                    <strong>@activeServicesCount</strong>
+                    <small>Bokningsbara tjänster</small>
+                </div>
+
+                <div class="overview-stat-card">
+                    <span>Aktiv personal</span>
+                    <strong>@activeStaffCount</strong>
+                    <small>Tillgänglig personal</small>
+                </div>
+            </section>
+
+            <div class="overview-grid">
+                <section class="overview-card today-card">
+                    <div class="overview-card-header">
+                        <div>
+                            <p class="admin-eyebrow">Dagens schema</p>
+                            <h2>Bokningar idag</h2>
+                        </div>
+
+                        @if (Permissions.CanManageCalendar)
+                        {
+                            <a href="/admin/businesses/@BusinessId/calendar">
+                                Öppna kalender
+                            </a>
+                        }
+                    </div>
+
                     @if (!todayBookings.Any())
                     {
-                        <div class="alert alert-info mb-0">
-                            No bookings today.
+                        <div class="overview-empty">
+                            <h3>Inga bokningar idag</h3>
+                            <p>Dagens schema är tomt.</p>
                         </div>
                     }
                     else
                     {
-                        <div class="d-flex flex-column gap-3">
+                        <div class="overview-booking-list">
                             @foreach (var booking in todayBookings)
                             {
-                                <div class="border rounded-3 p-3 bg-light">
-                                    <div class="d-flex justify-content-between gap-3">
-                                        <div>
-                                            <div class="fw-semibold">
-                                                @booking.CustomerName
-                                            </div>
-
-                                            <div class="small text-muted">
-                                                @booking.Service.Name —
-                                                @booking.StaffMember.FullName
-                                            </div>
-
-                                            @if (!string.IsNullOrWhiteSpace(booking.CustomerPhone))
-                                            {
-                                                <div class="small text-muted">
-                                                    @booking.CustomerPhone
-                                                </div>
-                                            }
-                                        </div>
-
-                                        <div class="text-end">
-                                            <div class="fw-semibold">
-                                                @booking.StartTime.ToString("HH:mm")
-                                                -
-                                                @booking.EndTime.ToString("HH:mm")
-                                            </div>
-
-                                            @if (booking.Status == "Confirmed")
-                                            {
-                                                <span class="badge bg-success">Confirmed</span>
-                                            }
-                                            else if (booking.Status == "Pending")
-                                            {
-                                                <span class="badge bg-warning text-dark">Pending</span>
-                                            }
-                                            else if (booking.Status == "Cancelled")
-                                            {
-                                                <span class="badge bg-danger">Cancelled</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-secondary">@booking.Status</span>
-                                            }
-
-                                            @if (Permissions.CanManageBookings)
-                                            {
-                                                <div class="mt-2">
-                                                    <a class="btn btn-sm btn-outline-primary"
-                                                       href="/admin/bookings/edit/@booking.Id">
-                                                        Edit
-                                                    </a>
-                                                </div>
-                                            }
-                                        </div>
+                                <article class="overview-booking-item @GetStatusClass(booking.Status)">
+                                    <div class="overview-booking-time">
+                                        <strong>@booking.StartTime.ToString("HH:mm")</strong>
+                                        <span>@booking.EndTime.ToString("HH:mm")</span>
                                     </div>
-                                </div>
+
+                                    <div class="overview-booking-info">
+                                        <h3>@booking.CustomerName</h3>
+                                        <p>@booking.Service.Name · @booking.StaffMember.FullName</p>
+
+                                        @if (!string.IsNullOrWhiteSpace(booking.CustomerPhone))
+                                        {
+                                            <small>@booking.CustomerPhone</small>
+                                        }
+                                    </div>
+
+                                    <div class="overview-booking-action">
+                                        <span>@TranslateStatus(booking.Status)</span>
+
+                                        @if (Permissions.CanManageBookings)
+                                        {
+                                            <a href="/admin/businesses/@BusinessId/bookings/edit/@booking.Id">
+                                                Ändra
+                                            </a>
+                                        }
+                                    </div>
+                                </article>
                             }
                         </div>
                     }
-                </div>
+                </section>
+
+                <aside class="overview-card quick-actions-card">
+                    <div class="overview-card-header">
+                        <div>
+                            <p class="admin-eyebrow">Snabbval</p>
+                            <h2>Hantera</h2>
+                        </div>
+                    </div>
+
+                    <div class="overview-actions-grid">
+                        @if (Permissions.CanManageBookings)
+                        {
+                            <a class="primary" href="/admin/businesses/@BusinessId/bookings/create">
+                                Skapa bokning
+                            </a>
+
+                            <a href="/admin/businesses/@BusinessId/bookings">
+                                Bokningar
+                            </a>
+                        }
+
+                        @if (Permissions.CanManageServices)
+                        {
+                            <a href="/admin/businesses/@BusinessId/services">
+                                Tjänster
+                            </a>
+                        }
+
+                        @if (Permissions.CanManageStaff)
+                        {
+                            <a href="/admin/businesses/@BusinessId/staff">
+                                Personal
+                            </a>
+                        }
+
+                        @if (Permissions.CanManageCalendar)
+                        {
+                            <a href="/admin/businesses/@BusinessId/calendar">
+                                Kalender
+                            </a>
+                        }
+
+                        @if (Permissions.CanManageSettings)
+                        {
+                            <a href="/admin/businesses/edit/@BusinessId">
+                                Inställningar
+                            </a>
+                        }
+
+                        @if (Permissions.IsPlatformSuperAdmin || Permissions.Role == EasySystems.Bookings.Data.Identity.AppRoles.BusinessOwner || Permissions.CanManageSettings)
+                        {
+                            <a href="/admin/businesses/@BusinessId/roles">
+                                Roller
+                            </a>
+                        }
+                    </div>
+                </aside>
             </div>
+
         </div>
-
-        <div class="col-12 col-xl-5">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-white">
-                    <strong>Quick actions</strong>
-                </div>
-
-                <div class="card-body d-grid gap-2">
-                    @if (Permissions.CanManageBookings)
-                    {
-                        <a class="btn btn-primary"
-                           href="/admin/businesses/@business.Id/bookings/create">
-                            Create Booking
-                        </a>
-
-                        <a class="btn btn-outline-success"
-                           href="/admin/businesses/@business.Id/bookings">
-                            View Bookings
-                        </a>
-                    }
-
-                    @if (Permissions.CanManageServices)
-                    {
-                        <a class="btn btn-outline-dark"
-                           href="/admin/businesses/@business.Id/services">
-                            Manage Services
-                        </a>
-                    }
-
-                    @if (Permissions.CanManageStaff)
-                    {
-                        <a class="btn btn-outline-secondary"
-                           href="/admin/businesses/@business.Id/staff">
-                            Manage Staff
-                        </a>
-                    }
-
-                    @if (Permissions.CanManageCalendar)
-                    {
-                        <a class="btn btn-outline-info"
-                           href="/admin/businesses/@business.Id/calendar">
-                            Open Calendar
-                        </a>
-                    }
-
-                    @if (Permissions.CanManageSettings)
-                    {
-                        <a class="btn btn-outline-primary"
-                           href="/admin/businesses/edit/@business.Id">
-                            Business Settings
-                        </a>
-                    }
-                </div>
-            </div>
-        </div>
-
     </div>
 }
 
@@ -241,22 +218,20 @@ else
 
     private List<Booking> todayBookings = [];
 
+    private static readonly CultureInfo SwedishCulture = new("sv-SE");
+
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
 
         if (!Permissions.HasAccess)
-        {
             return;
-        }
 
         business = await Db.Businesses
             .FirstOrDefaultAsync(b => b.Id == BusinessId);
 
         if (business is null)
-        {
             return;
-        }
 
         var today = DateTime.Today;
         var tomorrow = today.AddDays(1);
@@ -276,14 +251,10 @@ else
                 b.Status != "Cancelled");
 
         activeServicesCount = await Db.Services
-            .CountAsync(s =>
-                s.BusinessId == BusinessId &&
-                s.IsActive);
+            .CountAsync(s => s.BusinessId == BusinessId && s.IsActive);
 
         activeStaffCount = await Db.StaffMembers
-            .CountAsync(s =>
-                s.BusinessId == BusinessId &&
-                s.IsActive);
+            .CountAsync(s => s.BusinessId == BusinessId && s.IsActive);
 
         todayBookings = await Db.Bookings
             .Include(b => b.Service)
@@ -294,5 +265,43 @@ else
                 b.StartTime < tomorrow)
             .OrderBy(b => b.StartTime)
             .ToListAsync();
+    }
+
+    private string GetBusinessSubtitle()
+    {
+        if (business is null)
+            return "";
+
+        var type = string.IsNullOrWhiteSpace(business.BusinessType)
+            ? "Verksamhet"
+            : business.BusinessType;
+
+        var city = string.IsNullOrWhiteSpace(business.City)
+            ? "Ingen stad angiven"
+            : business.City;
+
+        return $"{type} · {city}";
+    }
+
+    private static string TranslateStatus(string status)
+    {
+        return status switch
+        {
+            "Confirmed" => "Bekräftad",
+            "Pending" => "Väntar",
+            "Cancelled" => "Avbokad",
+            _ => status
+        };
+    }
+
+    private static string GetStatusClass(string status)
+    {
+        return status switch
+        {
+            "Confirmed" => "confirmed",
+            "Pending" => "pending",
+            "Cancelled" => "cancelled",
+            _ => "other"
+        };
     }
 }

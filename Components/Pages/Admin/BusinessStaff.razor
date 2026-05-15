@@ -1,4 +1,5 @@
 ﻿@page "/admin/businesses/{BusinessId:int}/staff"
+@rendermode InteractiveServer
 
 @using EasySystems.Bookings.Components.Admin
 @using EasySystems.Bookings.Data
@@ -9,179 +10,159 @@
 
 @inject ApplicationDbContext Db
 
-<PageTitle>Business Staff</PageTitle>
+<PageTitle>Personal | EasySystems</PageTitle>
 
 <AdminNavbar BusinessId="BusinessId" />
 
 @if (!Permissions.HasAccess)
 {
-    <p>Checking access...</p>
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-loading-card">Kontrollerar åtkomst...</div>
+        </div>
+    </div>
 }
 else if (!Permissions.CanManageStaff)
 {
-    <div class="alert alert-danger">
-        You do not have permission to manage staff.
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-alert danger">
+                Du har inte behörighet att hantera personal.
+            </div>
+        </div>
     </div>
 }
 else if (business is null)
 {
-    <p>Loading...</p>
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-loading-card">Laddar personal...</div>
+        </div>
+    </div>
 }
 else
 {
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="admin-page admin-staff-page">
+        <div class="admin-shell">
 
-        <div>
-            <h1>@business.Name - Staff</h1>
+            <section class="admin-hero">
+                <div>
+                    <p class="admin-eyebrow">Personal</p>
+                    <h1>@business.Name</h1>
+                    <p>Hantera personal, specialiseringar, kontaktuppgifter och onlinebokning.</p>
+                </div>
 
-            <p class="text-muted mb-0">
-                @business.BusinessType —
-                Open @business.OpeningTime.ToString(@"hh\:mm")
-                to @business.ClosingTime.ToString(@"hh\:mm")
-            </p>
-        </div>
+                <div class="admin-hero-actions">
+                    <a class="admin-primary-btn" href="/admin/businesses/@BusinessId/staff/create">
+                        + Lägg till personal
+                    </a>
+                </div>
+            </section>
 
-        <a class="btn btn-primary"
-           href="/admin/businesses/@business.Id/staff/create">
-            Add Staff Member
-        </a>
+            <section class="staff-stats-grid">
+                <div class="staff-stat-card">
+                    <span>Totalt</span>
+                    <strong>@staffMembers.Count</strong>
+                </div>
 
-    </div>
+                <div class="staff-stat-card">
+                    <span>Aktiva</span>
+                    <strong>@staffMembers.Count(x => x.IsActive)</strong>
+                </div>
 
-    @if (!staffMembers.Any())
-    {
-        <div class="alert alert-info">
-            No staff members found.
-        </div>
-    }
-    else
-    {
-        <div class="table-responsive">
-            <table class="table table-striped align-middle">
+                <div class="staff-stat-card">
+                    <span>Online</span>
+                    <strong>@staffMembers.Count(x => x.AllowOnlineBookings)</strong>
+                </div>
 
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Specialization</th>
-                        <th>Email</th>
-                        <th>Phone</th>
-                        <th>Online</th>
-                        <th>Status</th>
-                        <th>Created</th>
-                        <th class="text-end">Actions</th>
-                    </tr>
-                </thead>
+                <div class="staff-stat-card">
+                    <span>Dolda</span>
+                    <strong>@staffMembers.Count(x => !x.AllowOnlineBookings)</strong>
+                </div>
+            </section>
 
-                <tbody>
+            @if (!staffMembers.Any())
+            {
+                <section class="admin-empty-state">
+                    <h2>Ingen personal ännu</h2>
+                    <p>Lägg till personal så att kunder kan välja vem de vill boka hos.</p>
+
+                    <a class="admin-primary-btn" href="/admin/businesses/@BusinessId/staff/create">
+                        Lägg till första personen
+                    </a>
+                </section>
+            }
+            else
+            {
+                <section class="staff-grid">
                     @foreach (var staff in staffMembers)
                     {
-                        <tr>
-                            <td>
-                                <div class="fw-semibold">
-                                    @staff.FullName
+                        <article class="staff-list-card @(staff.IsActive ? "active" : "inactive")">
+                            <div class="staff-card-visual">
+                                @if (!string.IsNullOrWhiteSpace(staff.ImageUrl))
+                                {
+                                    <img src="@staff.ImageUrl" alt="@staff.FullName" />
+                                }
+                                else
+                                {
+                                    <span>@GetInitials(staff.FullName)</span>
+                                }
+                            </div>
+
+                            <div class="staff-list-content">
+                                <div class="staff-list-top">
+                                    <span class="staff-status-pill @(staff.IsActive ? "active" : "inactive")">
+                                        @(staff.IsActive ? "Aktiv" : "Inaktiv")
+                                    </span>
+
+                                    <span class="staff-online-pill @(staff.AllowOnlineBookings ? "online" : "hidden")">
+                                        @(staff.AllowOnlineBookings ? "Onlinebokning" : "Dold")
+                                    </span>
                                 </div>
+
+                                <h2>@staff.FullName</h2>
+
+                                <p class="staff-specialization">
+                                    @DisplayOrFallback(staff.Specialization, "Ingen specialisering")
+                                </p>
 
                                 @if (!string.IsNullOrWhiteSpace(staff.Bio))
                                 {
-                                    <small class="text-muted">
-                                        @staff.Bio
-                                    </small>
-                                }
-                            </td>
-
-                            <td>
-                                @if (!string.IsNullOrWhiteSpace(staff.Specialization))
-                                {
-                                    @staff.Specialization
+                                    <p class="staff-bio">@staff.Bio</p>
                                 }
                                 else
                                 {
-                                    <span class="text-muted">
-                                        No specialization
-                                    </span>
+                                    <p class="staff-bio muted">Ingen presentation tillagd.</p>
                                 }
-                            </td>
 
-                            <td>
-                                @if (!string.IsNullOrWhiteSpace(staff.Email))
-                                {
-                                    @staff.Email
-                                }
-                                else
-                                {
-                                    <span class="text-muted">
-                                        No email
-                                    </span>
-                                }
-                            </td>
+                                <div class="staff-contact-grid">
+                                    <div>
+                                        <span>E-post</span>
+                                        <strong>@DisplayOrFallback(staff.Email, "Saknas")</strong>
+                                    </div>
 
-                            <td>
-                                @if (!string.IsNullOrWhiteSpace(staff.Phone))
-                                {
-                                    @staff.Phone
-                                }
-                                else
-                                {
-                                    <span class="text-muted">
-                                        No phone
-                                    </span>
-                                }
-                            </td>
+                                    <div>
+                                        <span>Telefon</span>
+                                        <strong>@DisplayOrFallback(staff.Phone, "Saknas")</strong>
+                                    </div>
+                                </div>
 
-                            <td>
-                                @if (staff.AllowOnlineBookings)
-                                {
-                                    <span class="badge bg-info text-dark">
-                                        Online
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-light text-dark border">
-                                        Hidden
-                                    </span>
-                                }
-                            </td>
-
-                            <td>
-                                @if (staff.IsActive)
-                                {
-                                    <span class="badge bg-success">
-                                        Active
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-secondary">
-                                        Inactive
-                                    </span>
-                                }
-                            </td>
-
-                            <td>
-                                @staff.CreatedAt
-                                .ToLocalTime()
-                                .ToString("yyyy-MM-dd HH:mm")
-                            </td>
-
-                            <td class="text-end">
-                                <a class="btn btn-sm btn-outline-primary"
-                                   href="/admin/businesses/@BusinessId/staff/edit/@staff.Id">
-                                    Edit
-                                </a>
-                            </td>
-                        </tr>
+                                <div class="staff-list-actions">
+                                    <a href="/admin/businesses/@BusinessId/staff/edit/@staff.Id">
+                                        Redigera
+                                    </a>
+                                </div>
+                            </div>
+                        </article>
                     }
-                </tbody>
-
-            </table>
+                </section>
+            }
         </div>
-    }
+    </div>
 }
 
 @code {
     private Business? business;
-
     private List<StaffMember> staffMembers = [];
 
     protected override async Task OnInitializedAsync()
@@ -189,22 +170,36 @@ else
         await base.OnInitializedAsync();
 
         if (!Permissions.HasAccess || !Permissions.CanManageStaff)
-        {
             return;
-        }
 
         business = await Db.Businesses
             .FirstOrDefaultAsync(b => b.Id == BusinessId);
 
         if (business is null)
-        {
             return;
-        }
 
         staffMembers = await Db.StaffMembers
             .Where(s => s.BusinessId == BusinessId)
             .OrderBy(s => s.SortOrder)
             .ThenBy(s => s.FullName)
             .ToListAsync();
+    }
+
+    private static string DisplayOrFallback(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    private static string GetInitials(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "EB";
+
+        var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+
+        return value[0].ToString().ToUpper();
     }
 }
