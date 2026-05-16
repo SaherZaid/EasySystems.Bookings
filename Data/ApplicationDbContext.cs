@@ -16,6 +16,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Service> Services => Set<Service>();
     public DbSet<StaffMember> StaffMembers => Set<StaffMember>();
     public DbSet<Booking> Bookings => Set<Booking>();
+    public DbSet<EmailOutbox> EmailOutbox => Set<EmailOutbox>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

@@ -3,9 +3,6 @@ using EasySystems.Bookings.Data.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using System.Net;
-using System.Net.Mail;
-using System.Net.Mime;
 using System.Text.Encodings.Web;
 
 namespace EasySystems.Bookings.Services;
@@ -26,15 +23,18 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
     private readonly EmailSettings _settings;
     private readonly HtmlEncoder _htmlEncoder;
     private readonly IDbContextFactory<ApplicationDbContext> _dbFactory;
+    private readonly IEmailQueue _emailQueue;
 
     public SmtpEmailSender(
         IOptions<EmailSettings> options,
         HtmlEncoder htmlEncoder,
-        IDbContextFactory<ApplicationDbContext> dbFactory)
+        IDbContextFactory<ApplicationDbContext> dbFactory,
+        IEmailQueue emailQueue)
     {
         _settings = options.Value;
         _htmlEncoder = htmlEncoder;
         _dbFactory = dbFactory;
+        _emailQueue = emailQueue;
     }
 
     public async Task SendConfirmationLinkAsync(ApplicationUser user, string email, string confirmationLink)
@@ -43,19 +43,20 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
         var safeLink = _htmlEncoder.Encode(confirmationLink);
 
         await SendEmailAsync(
-            toEmail: email,
-            businessName: businessName,
-            subject: $"Bekräfta din e-post | {businessName}",
-            preHeader: $"Välkommen till {businessName}, powered by {_settings.CompanyName}.",
-            title: "Välkommen, ditt bokningskonto är redo",
-            message: $"""
+            email,
+            businessName,
+            $"Bekräfta din e-post | {businessName}",
+            $"Välkommen till {businessName}.",
+            "Välkommen, ditt bokningskonto är redo",
+            $"""
             <p>Hej!</p>
             <p>Vi är glada att välkomna dig till <strong>{Encode(businessName)}</strong>.</p>
             <p>Bekräfta din e-postadress för att aktivera ditt konto och hantera dina bokningar tryggt.</p>
             """,
-            buttonText: "Bekräfta e-post",
-            buttonUrl: safeLink,
-            footerNote: $"Detta mail skickades av {_settings.CompanyName} för {businessName}."
+            "Bekräfta e-post",
+            safeLink,
+            null,
+            $"Detta mail skickades av {_settings.CompanyName} för {businessName}."
         );
     }
 
@@ -65,18 +66,19 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
         var safeLink = _htmlEncoder.Encode(resetLink);
 
         await SendEmailAsync(
-            toEmail: email,
-            businessName: businessName,
-            subject: $"Återställ lösenord | {businessName}",
-            preHeader: $"Återställ lösenordet för ditt konto hos {businessName}.",
-            title: "Återställ ditt lösenord",
-            message: $"""
+            email,
+            businessName,
+            $"Återställ lösenord | {businessName}",
+            $"Återställ lösenordet för ditt konto hos {businessName}.",
+            "Återställ ditt lösenord",
+            $"""
             <p>Vi har fått en begäran om att återställa lösenordet för ditt konto hos <strong>{Encode(businessName)}</strong>.</p>
             <p>Klicka på knappen nedan för att skapa ett nytt säkert lösenord.</p>
             """,
-            buttonText: "Återställ lösenord",
-            buttonUrl: safeLink,
-            footerNote: "Om du inte begärde detta kan du ignorera mailet."
+            "Återställ lösenord",
+            safeLink,
+            null,
+            "Om du inte begärde detta kan du ignorera mailet."
         );
     }
 
@@ -85,17 +87,19 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
         var businessName = await GetBusinessNameAsync(user.Id);
 
         await SendEmailAsync(
-            toEmail: email,
-            businessName: businessName,
-            subject: $"Din återställningskod | {businessName}",
-            preHeader: $"Använd koden för att återställa lösenordet.",
-            title: "Din återställningskod",
-            message: """
+            email,
+            businessName,
+            $"Din återställningskod | {businessName}",
+            "Använd koden för att återställa lösenordet.",
+            "Din återställningskod",
+            """
             <p>Använd koden nedan för att fortsätta återställningen av ditt lösenord.</p>
             <p>Dela inte koden med någon.</p>
             """,
-            code: resetCode,
-            footerNote: $"Powered by {_settings.CompanyName}."
+            null,
+            null,
+            resetCode,
+            $"Powered by {_settings.CompanyName}."
         );
     }
 
@@ -105,13 +109,16 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
             return;
 
         await SendEmailAsync(
-            toEmail: booking.CustomerEmail,
-            businessName: booking.Business.Name,
-            subject: $"Din bokningsförfrågan är mottagen | {booking.Business.Name}",
-            preHeader: $"Vi har tagit emot din bokningsförfrågan hos {booking.Business.Name}.",
-            title: "Din bokningsförfrågan är mottagen",
-            message: BuildBookingCustomerMessage(booking),
-            footerNote: $"Du får ett nytt mail när {booking.Business.Name} uppdaterar statusen på din bokning."
+            booking.CustomerEmail,
+            booking.Business.Name,
+            $"Din bokningsförfrågan är mottagen | {booking.Business.Name}",
+            $"Vi har tagit emot din bokningsförfrågan hos {booking.Business.Name}.",
+            "Din bokningsförfrågan är mottagen",
+            BuildBookingCustomerMessage(booking),
+            null,
+            null,
+            null,
+            $"Du får ett nytt mail när {booking.Business.Name} uppdaterar statusen på din bokning."
         );
     }
 
@@ -121,13 +128,16 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
             return;
 
         await SendEmailAsync(
-            toEmail: booking.Business.Email,
-            businessName: booking.Business.Name,
-            subject: $"Ny bokningsförfrågan | {booking.CustomerName}",
-            preHeader: "En ny kund har skickat en bokningsförfrågan.",
-            title: "Ny bokningsförfrågan",
-            message: BuildBookingBusinessMessage(booking),
-            footerNote: "Logga in i EasySystems för att bekräfta, ändra eller avboka bokningen."
+            booking.Business.Email,
+            booking.Business.Name,
+            $"Ny bokningsförfrågan | {booking.CustomerName}",
+            "En ny kund har skickat en bokningsförfrågan.",
+            "Ny bokningsförfrågan",
+            BuildBookingBusinessMessage(booking),
+            null,
+            null,
+            null,
+            "Logga in i EasySystems för att bekräfta, ändra eller avboka bokningen."
         );
     }
 
@@ -137,13 +147,98 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
             return;
 
         await SendEmailAsync(
-            toEmail: booking.CustomerEmail,
-            businessName: booking.Business.Name,
-            subject: $"Din bokning är {TranslateStatus(booking.Status).ToLower()} | {booking.Business.Name}",
-            preHeader: "Statusen för din bokning har uppdaterats.",
-            title: $"Din bokning är {TranslateStatus(booking.Status).ToLower()}",
-            message: BuildBookingStatusMessage(booking),
-            footerNote: $"Detta mail skickades av {_settings.CompanyName} för {booking.Business.Name}."
+            booking.CustomerEmail,
+            booking.Business.Name,
+            $"Din bokning är {TranslateStatus(booking.Status).ToLower()} | {booking.Business.Name}",
+            "Statusen för din bokning har uppdaterats.",
+            $"Din bokning är {TranslateStatus(booking.Status).ToLower()}",
+            BuildBookingStatusMessage(booking),
+            null,
+            null,
+            null,
+            $"Detta mail skickades av {_settings.CompanyName} för {booking.Business.Name}."
+        );
+    }
+
+    public async Task SendBookingConfirmedToCustomerAsync(Booking booking)
+    {
+        if (string.IsNullOrWhiteSpace(booking.CustomerEmail))
+            return;
+
+        booking.Status = "Confirmed";
+
+        await SendEmailAsync(
+            booking.CustomerEmail,
+            booking.Business.Name,
+            $"Din bokning är bekräftad | {booking.Business.Name}",
+            "Din bokning har blivit bekräftad.",
+            "Din bokning är bekräftad",
+            $"""
+            <p>Hej <strong>{Encode(booking.CustomerName)}</strong>,</p>
+            <p>Din bokning har nu blivit <strong>bekräftad</strong>.</p>
+            {BuildBookingDetailsBox(booking)}
+            <p>Vi ser fram emot ditt besök hos <strong>{Encode(booking.Business.Name)}</strong>.</p>
+            """,
+            null,
+            null,
+            null,
+            $"Tack för att du bokar hos {booking.Business.Name}."
+        );
+    }
+
+    public async Task SendBookingCancelledToCustomerAsync(Booking booking)
+    {
+        if (string.IsNullOrWhiteSpace(booking.CustomerEmail))
+            return;
+
+        booking.Status = "Cancelled";
+
+        await SendEmailAsync(
+            booking.CustomerEmail,
+            booking.Business.Name,
+            $"Din bokning har avbokats | {booking.Business.Name}",
+            "Din bokning har blivit avbokad.",
+            "Din bokning har avbokats",
+            $"""
+            <p>Hej <strong>{Encode(booking.CustomerName)}</strong>,</p>
+            <p>Din bokning har blivit <strong>avbokad</strong>.</p>
+            {BuildBookingDetailsBox(booking)}
+            {BuildCancellationReasonBox(booking)}
+            """,
+            null,
+            null,
+            null,
+            "Kontakta verksamheten om du har frågor kring avbokningen."
+        );
+    }
+
+    public async Task SendBookingCancelledToBusinessAsync(Booking booking)
+    {
+        if (string.IsNullOrWhiteSpace(booking.Business.Email))
+            return;
+
+        booking.Status = "Cancelled";
+
+        await SendEmailAsync(
+            booking.Business.Email,
+            booking.Business.Name,
+            $"Kunden avbokade en tid | {booking.CustomerName}",
+            "En kund har avbokat sin bokning.",
+            "Bokning avbokad av kund",
+            $"""
+            <p>Kunden <strong>{Encode(booking.CustomerName)}</strong> har avbokat sin bokning.</p>
+            {BuildBookingDetailsBox(booking)}
+            {BuildCancellationReasonBox(booking)}
+            <div style="margin:22px 0 0;padding:18px;border-radius:22px;background:#f9fafb;border:1px solid #e5e7eb;">
+              <p style="margin:0 0 8px;"><strong>Kundens kontakt</strong></p>
+              <p style="margin:0 0 6px;">E-post: {Encode(booking.CustomerEmail ?? "Saknas")}</p>
+              <p style="margin:0;">Telefon: {Encode(booking.CustomerPhone ?? "Saknas")}</p>
+            </div>
+            """,
+            null,
+            null,
+            null,
+            "Logga in i EasySystems för att hantera bokningen."
         );
     }
 
@@ -168,9 +263,7 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
         return $"""
         <p>Hej <strong>{Encode(booking.CustomerName)}</strong>,</p>
         <p>Vi har tagit emot din bokningsförfrågan. Bokningen är just nu <strong>väntande</strong>.</p>
-
         {BuildBookingDetailsBox(booking)}
-
         <p>Du får ett nytt mail när bokningen bekräftas, ändras eller avbokas.</p>
         """;
     }
@@ -179,9 +272,7 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
     {
         return $"""
         <p>En ny bokningsförfrågan har kommit in.</p>
-
         {BuildBookingDetailsBox(booking)}
-
         <div style="margin:22px 0 0;padding:18px;border-radius:22px;background:#f9fafb;border:1px solid #e5e7eb;">
           <p style="margin:0 0 8px;"><strong>Kundens kontakt</strong></p>
           <p style="margin:0 0 6px;">E-post: {Encode(booking.CustomerEmail ?? "Saknas")}</p>
@@ -192,21 +283,26 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
 
     private string BuildBookingStatusMessage(Booking booking)
     {
-        var cancellationReason = booking.Status == "Cancelled" && !string.IsNullOrWhiteSpace(booking.CancellationReason)
-            ? $"""
-              <div style="margin:22px 0 0;padding:18px;border-radius:22px;background:#fff7ed;border:1px solid #fed7aa;">
-                <p style="margin:0;"><strong>Orsak:</strong> {Encode(booking.CancellationReason)}</p>
-              </div>
-              """
-            : "";
-
         return $"""
         <p>Hej <strong>{Encode(booking.CustomerName)}</strong>,</p>
         <p>Statusen för din bokning har uppdaterats till <strong>{Encode(TranslateStatus(booking.Status))}</strong>.</p>
-
         {BuildBookingDetailsBox(booking)}
+        {BuildCancellationReasonBox(booking)}
+        """;
+    }
 
-        {cancellationReason}
+    private string BuildCancellationReasonBox(Booking booking)
+    {
+        if (booking.Status != "Cancelled" || string.IsNullOrWhiteSpace(booking.CancellationReason))
+            return "";
+
+        return $"""
+        <div style="margin-top:22px;padding:18px;border-radius:22px;background:#fff7ed;border:1px solid #fed7aa;">
+            <p style="margin:0;">
+                <strong>Orsak:</strong>
+                {Encode(booking.CancellationReason)}
+            </p>
+        </div>
         """;
     }
 
@@ -262,32 +358,9 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
             buttonText,
             buttonUrl,
             code,
-            footerNote
-        );
+            footerNote);
 
-        using var mailMessage = new MailMessage
-        {
-            From = new MailAddress(_settings.Email, _settings.DisplayName),
-            Subject = subject,
-            Body = htmlBody,
-            IsBodyHtml = true,
-            BodyEncoding = System.Text.Encoding.UTF8,
-            SubjectEncoding = System.Text.Encoding.UTF8
-        };
-
-        mailMessage.To.Add(toEmail);
-
-        mailMessage.AlternateViews.Add(
-            AlternateView.CreateAlternateViewFromString(htmlBody, null, MediaTypeNames.Text.Html)
-        );
-
-        using var smtpClient = new SmtpClient(_settings.Host, _settings.Port)
-        {
-            EnableSsl = _settings.EnableSsl,
-            Credentials = new NetworkCredential(_settings.Email, _settings.Password)
-        };
-
-        await smtpClient.SendMailAsync(mailMessage);
+        await _emailQueue.QueueEmailAsync(toEmail, subject, htmlBody);
     }
 
     private string BuildHtmlTemplate(
@@ -349,7 +422,6 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8f4ed;padding:38px 16px;">
             <tr>
               <td align="center">
-
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
                        style="max-width:660px;background:#ffffff;border-radius:34px;overflow:hidden;
                               box-shadow:0 28px 80px rgba(34,24,18,.12);border:1px solid #eadfd3;">
@@ -365,7 +437,7 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
                       </div>
 
                       <div style="font-size:14px;margin-top:10px;color:#7a6f63;">
-                        Smart online bookings, beautifully managed.
+                        Smarta bokningar, enkelt hanterade.
                       </div>
                     </td>
                   </tr>
@@ -392,13 +464,11 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
                       </div>
                     </td>
                   </tr>
-
                 </table>
 
                 <div style="font-size:12px;color:#9b9288;margin-top:18px;">
-                  © {{DateTime.Now.Year}} {{companyName}}. Built for modern service businesses.
+                  © {{DateTime.Now.Year}} {{companyName}}. Byggt för moderna serviceverksamheter.
                 </div>
-
               </td>
             </tr>
           </table>
@@ -433,89 +503,5 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
 
         if (string.IsNullOrWhiteSpace(_settings.Password))
             throw new InvalidOperationException("EmailSettings:Password is missing.");
-    }
-
-    public async Task SendBookingConfirmedToCustomerAsync(Booking booking)
-    {
-        if (string.IsNullOrWhiteSpace(booking.CustomerEmail))
-            return;
-
-        await SendEmailAsync(
-            toEmail: booking.CustomerEmail,
-            businessName: booking.Business.Name,
-            subject: $"Din bokning är bekräftad | {booking.Business.Name}",
-            preHeader: "Din bokning har blivit bekräftad.",
-            title: "Din bokning är bekräftad",
-            message: $"""
-        <p>Hej <strong>{Encode(booking.CustomerName)}</strong>,</p>
-
-        <p>Din bokning har nu blivit <strong>bekräftad</strong>.</p>
-
-        {BuildBookingDetailsBox(booking)}
-
-        <p>Vi ser fram emot ditt besök hos <strong>{Encode(booking.Business.Name)}</strong>.</p>
-        """,
-            footerNote: $"Tack för att du bokar hos {booking.Business.Name}."
-        );
-    }
-
-    public async Task SendBookingCancelledToCustomerAsync(Booking booking)
-    {
-        if (string.IsNullOrWhiteSpace(booking.CustomerEmail))
-            return;
-
-        await SendEmailAsync(
-            toEmail: booking.CustomerEmail,
-            businessName: booking.Business.Name,
-            subject: $"Din bokning har avbokats | {booking.Business.Name}",
-            preHeader: "Din bokning har blivit avbokad.",
-            title: "Din bokning har avbokats",
-            message: $"""
-        <p>Hej <strong>{Encode(booking.CustomerName)}</strong>,</p>
-
-        <p>Din bokning har blivit <strong>avbokad</strong>.</p>
-
-        {BuildBookingDetailsBox(booking)}
-
-        {(string.IsNullOrWhiteSpace(booking.CancellationReason)
-                ? ""
-                : $"""
-            <div style="margin-top:22px;padding:18px;border-radius:22px;background:#fff7ed;border:1px solid #fed7aa;">
-                <p style="margin:0;">
-                    <strong>Orsak:</strong>
-                    {Encode(booking.CancellationReason)}
-                </p>
-            </div>
-            """)}
-        """,
-            footerNote: "Kontakta verksamheten om du har frågor kring avbokningen."
-        );
-    }
-
-    public async Task SendBookingCancelledToBusinessAsync(Booking booking)
-    {
-        if (string.IsNullOrWhiteSpace(booking.Business.Email))
-            return;
-
-        await SendEmailAsync(
-            toEmail: booking.Business.Email,
-            businessName: booking.Business.Name,
-            subject: $"Kunden avbokade en tid | {booking.CustomerName}",
-            preHeader: "En kund har avbokat sin bokning.",
-            title: "Bokning avbokad av kund",
-            message: $"""
-        <p>Kunden <strong>{Encode(booking.CustomerName)}</strong> har avbokat sin bokning.</p>
-
-        {BuildBookingDetailsBox(booking)}
-
-        <div style="margin-top:22px;padding:18px;border-radius:22px;background:#fff7ed;border:1px solid #fed7aa;">
-            <p style="margin:0;">
-                <strong>Orsak:</strong>
-                {Encode(booking.CancellationReason ?? "Ingen orsak angiven")}
-            </p>
-        </div>
-        """,
-            footerNote: "Logga in i EasySystems för att hantera bokningen."
-        );
     }
 }

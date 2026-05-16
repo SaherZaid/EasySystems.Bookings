@@ -47,6 +47,9 @@ builder.Services.Configure<EmailSettings>(
 builder.Services.AddTransient<IEmailSender<ApplicationUser>, SmtpEmailSender>();
 builder.Services.AddTransient<IBookingEmailSender, SmtpEmailSender>();
 
+builder.Services.AddScoped<IEmailQueue, EmailQueue>();
+builder.Services.AddHostedService<EmailOutboxWorker>();
+
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
