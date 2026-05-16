@@ -6,6 +6,7 @@
 @using EasySystems.Bookings.Data.Entities
 @using EasySystems.Bookings.Services
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @using System.Globalization
@@ -17,10 +18,9 @@
 @inject IBookingEmailSender BookingEmailSender
 @inject ILogger<MyBookings> Logger
 
-
 <PageTitle>Mina bokningar | EasySystems</PageTitle>
 
-<div class="customer-portal-page" style="@GetCustomerPageStyle()">
+<div class="customer-portal-page" style="@GetCustomerThemeStyle()">
 
     <section class="customer-portal-hero" style="@GetCustomerHeroStyle()">
         <div>
@@ -30,9 +30,7 @@
         </div>
 
         <div class="customer-portal-actions">
-            <a href="/" class="customer-portal-light-btn">
-                Boka ny tid
-            </a>
+            <a href="/" class="customer-portal-light-btn">Boka ny tid</a>
         </div>
     </section>
 
@@ -47,16 +45,12 @@
     {
         @if (!string.IsNullOrWhiteSpace(errorMessage))
         {
-            <div class="customer-portal-alert error">
-                @errorMessage
-            </div>
+            <div class="customer-portal-alert error">@errorMessage</div>
         }
 
         @if (!string.IsNullOrWhiteSpace(successMessage))
         {
-            <div class="customer-portal-alert success">
-                @successMessage
-            </div>
+            <div class="customer-portal-alert success">@successMessage</div>
         }
 
         <section class="customer-portal-stats">
@@ -97,7 +91,7 @@
                         <h3>Inga kommande bokningar</h3>
                         <p>Du har inga framtida bokningar just nu.</p>
 
-                        <a href="/" class="customer-portal-primary-btn" style="@GetCustomerButtonStyle()">
+                        <a href="/" class="customer-portal-primary-btn">
                             Boka ny tid
                         </a>
                     </div>
@@ -110,10 +104,7 @@
                             <article class="customer-portal-booking-card" style="@GetCustomerCardStyle(booking)">
                                 <div class="customer-portal-booking-top">
                                     <div>
-                                        <span class="customer-portal-business">
-                                            @booking.Business.Name
-                                        </span>
-
+                                        <span class="customer-portal-business">@booking.Business.Name</span>
                                         <h3>@booking.Service.Name</h3>
 
                                         <p>
@@ -143,7 +134,7 @@
 
                                     <div>
                                         <span>Pris</span>
-                                        <strong style="@GetPriceStyle(booking)">
+                                        <strong class="customer-portal-price" style="@GetPriceStyle(booking)">
                                             @booking.Service.Price.ToString("0.00") kr
                                         </strong>
                                     </div>
@@ -158,9 +149,7 @@
 
                                 @if (!string.IsNullOrWhiteSpace(booking.Notes))
                                 {
-                                    <div class="customer-portal-note">
-                                        @booking.Notes
-                                    </div>
+                                    <div class="customer-portal-note">@booking.Notes</div>
                                 }
 
                                 <div class="customer-portal-booking-actions">
@@ -191,9 +180,7 @@
 
                     @if (!previousBookings.Any())
                     {
-                        <div class="customer-portal-side-empty">
-                            Ingen historik ännu.
-                        </div>
+                        <div class="customer-portal-side-empty">Ingen historik ännu.</div>
                     }
                     else
                     {
@@ -242,7 +229,6 @@
 
         </main>
     }
-
 </div>
 
 @code {
@@ -275,7 +261,6 @@
     {
         isLoading = true;
         errorMessage = null;
-        successMessage = null;
 
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var principal = authState.User;
@@ -383,11 +368,7 @@
         catch (Exception ex)
         {
             emailFailed = true;
-
-            Logger.LogError(
-                ex,
-                "Failed to send cancellation email for booking {BookingId}",
-                booking.Id);
+            Logger.LogError(ex, "Failed to send cancellation email for booking {BookingId}", booking.Id);
         }
 
         cancellingBookingIds.Remove(bookingId);
@@ -405,12 +386,33 @@
                booking.StartTime > DateTime.Now;
     }
 
-    private string GetCustomerPageStyle()
+    private string GetCustomerThemeStyle()
     {
         if (themeBusiness is null)
             return "";
 
-        return $"background:{themeBusiness.PageBackgroundColor}; color:{themeBusiness.BodyTextColor};";
+        return string.Join(" ",
+            $"--customer-page-bg:{CssValue(themeBusiness.PageBackgroundColor, "#F8F4ED")};",
+            $"--customer-section-bg:{CssValue(themeBusiness.SectionBackgroundColor, "#FFFFFF")};",
+            $"--customer-card-bg:{CssValue(themeBusiness.CardBackgroundColor, "#FFFFFF")};",
+            $"--customer-booking-card-bg:{CssValue(themeBusiness.BookingPanelBackgroundColor, "#FFFFFF")};",
+            $"--customer-heading:{CssValue(themeBusiness.HeadingTextColor, "#151515")};",
+            $"--customer-body:{CssValue(themeBusiness.BodyTextColor, "#4B5563")};",
+            $"--customer-muted:{CssValue(themeBusiness.MutedTextColor, "#7A6F63")};",
+            $"--customer-primary:{CssValue(themeBusiness.PrimaryColor, "#151515")};",
+            $"--customer-secondary:{CssValue(themeBusiness.SecondaryColor, "#C9A46A")};",
+            $"--customer-button-bg:{CssValue(themeBusiness.ButtonBackgroundColor, "#151515")};",
+            $"--customer-button-text:{CssValue(themeBusiness.ButtonTextColor, "#FFFFFF")};",
+            $"--customer-secondary-button-bg:{CssValue(themeBusiness.SecondaryButtonBackgroundColor, "#FFFFFF")};",
+            $"--customer-secondary-button-text:{CssValue(themeBusiness.SecondaryButtonTextColor, "#151515")};",
+            $"--customer-price:{CssValue(themeBusiness.PriceTextColor, "#151515")};",
+            $"--customer-success:{CssValue(themeBusiness.SuccessColor, "#087443")};",
+            $"--customer-warning:{CssValue(themeBusiness.WarningColor, "#B45309")};",
+            $"--customer-danger:{CssValue(themeBusiness.DangerColor, "#B42318")};",
+            $"--customer-input-border:{CssValue(themeBusiness.InputBorderColor, "#E5E7EB")};",
+            $"background-color:{CssValue(themeBusiness.PageBackgroundColor, "#F8F4ED")};",
+            $"color:{CssValue(themeBusiness.BodyTextColor, "#4B5563")};"
+        );
     }
 
     private string GetCustomerHeroStyle()
@@ -418,28 +420,29 @@
         if (themeBusiness is null)
             return "";
 
+        var heroText = CssValue(themeBusiness.HeroTextColor, "#FFFFFF");
+
         if (string.IsNullOrWhiteSpace(themeBusiness.CoverImageUrl))
-            return $"background:linear-gradient(135deg,{themeBusiness.PrimaryColor},{themeBusiness.SecondaryColor}); color:{themeBusiness.HeroTextColor};";
+        {
+            return $"background-image:linear-gradient(135deg,{CssValue(themeBusiness.PrimaryColor, "#151515")},{CssValue(themeBusiness.SecondaryColor, "#C9A46A")}); color:{heroText};";
+        }
 
-        return $"background:linear-gradient({themeBusiness.HeroOverlayColor},{themeBusiness.HeroOverlayColor}), url('{themeBusiness.CoverImageUrl}') center/cover; color:{themeBusiness.HeroTextColor};";
+        var overlay = CssValue(themeBusiness.HeroOverlayColor, "rgba(0,0,0,.55)");
+
+        return $"background-image:linear-gradient({overlay},{overlay}), url('{themeBusiness.CoverImageUrl}'); background-position:center; background-size:cover; color:{heroText};";
     }
 
-    private string GetCustomerButtonStyle()
+    private static string GetCustomerCardStyle(Booking booking)
     {
-        if (themeBusiness is null)
-            return "";
-
-        return $"background:{themeBusiness.ButtonBackgroundColor}; color:{themeBusiness.ButtonTextColor};";
-    }
-
-    private string GetCustomerCardStyle(Booking booking)
-    {
-        return $"background:{booking.Business.BookingPanelBackgroundColor}; color:{booking.Business.BodyTextColor};";
+        return string.Join(" ",
+            $"background-color:{CssValue(booking.Business.BookingPanelBackgroundColor, "#FFFFFF")};",
+            $"color:{CssValue(booking.Business.BodyTextColor, "#4B5563")};"
+        );
     }
 
     private static string GetPriceStyle(Booking booking)
     {
-        return $"color:{booking.Business.PriceTextColor} !important;";
+        return $"color:{CssValue(booking.Business.PriceTextColor, "#151515")} !important;";
     }
 
     private string DisplayCustomerName()
@@ -479,5 +482,10 @@
             "Cancelled" => "cancelled",
             _ => "default"
         };
+    }
+
+    private static string CssValue(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 }

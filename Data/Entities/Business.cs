@@ -184,6 +184,36 @@ public class Business
     [MaxLength(30)]
     public string DangerColor { get; set; } = "#B42318";
 
+    [MaxLength(30)]
+    public string InputBackgroundColor { get; set; } = "#FFFFFF";
+
+    [MaxLength(30)]
+    public string InputTextColor { get; set; } = "#151515";
+
+    [MaxLength(30)]
+    public string InputBorderColor { get; set; } = "#E5E7EB";
+
+    [MaxLength(30)]
+    public string InputFocusColor { get; set; } = "#C9A46A";
+
+    [MaxLength(30)]
+    public string LabelTextColor { get; set; } = "#374151";
+
+    [MaxLength(30)]
+    public string TimeSlotBackgroundColor { get; set; } = "#FFFFFF";
+
+    [MaxLength(30)]
+    public string TimeSlotTextColor { get; set; } = "#151515";
+
+    [MaxLength(30)]
+    public string TimeSlotActiveBackgroundColor { get; set; } = "#151515";
+
+    [MaxLength(30)]
+    public string TimeSlotActiveTextColor { get; set; } = "#FFFFFF";
+
+    [MaxLength(30)]
+    public string CustomerPortalCardColor { get; set; } = "#FFFFFF";
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<BusinessUser> Users { get; set; } = [];

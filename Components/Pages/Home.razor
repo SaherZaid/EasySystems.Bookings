@@ -13,6 +13,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject UserManager<ApplicationUser> UserManager
 @inject IBookingEmailSender BookingEmailSender
+@inject ILoggerFactory LoggerFactory
 
 <PageTitle>@pageTitle</PageTitle>
 
@@ -33,7 +34,7 @@ else if (business is null)
 }
 else
 {
-    <div class="public-booking-page" style="@GetPageStyle()">
+    <div class="public-booking-page" style="@GetPublicThemeStyle()">
 
         <section class="public-booking-hero" style="@GetHeroStyle()">
             <div class="public-booking-hero-content">
@@ -63,20 +64,16 @@ else
                 }
 
                 <div class="public-booking-hero-actions">
-                    <a href="#booking" style="@GetButtonStyle()">Boka tid</a>
+                    <a href="#booking" class="public-primary-link">Boka tid</a>
                     <a href="#hours" class="public-booking-light-btn">Öppettider</a>
 
                     @if (currentUser is not null)
                     {
-                        <a href="/Account/Bookings" class="public-booking-light-btn">
-                            Mina bokningar
-                        </a>
+                        <a href="/Account/Bookings" class="public-booking-light-btn">Mina bokningar</a>
                     }
                     else
                     {
-                        <a href="/Account/Login" class="public-booking-light-btn">
-                            Logga in
-                        </a>
+                        <a href="/Account/Login" class="public-booking-light-btn">Logga in</a>
                     }
                 </div>
             </div>
@@ -263,7 +260,6 @@ else
                             }
 
                             <button class="public-submit-btn"
-                                    style="@GetButtonStyle()"
                                     type="submit"
                                     disabled="@isSubmitting">
                                 @(isSubmitting ? "Skickar..." : "Skicka bokningsförfrågan")
@@ -300,7 +296,7 @@ else
                             <div class="public-service-list">
                                 @foreach (var service in services)
                                 {
-                                    <article class="public-service-item" style="@GetServiceCardStyle()">
+                                    <article class="public-service-item">
                                         <div>
                                             <strong>@service.Name</strong>
 
@@ -310,7 +306,7 @@ else
                                             }
                                         </div>
 
-                                        <span class="public-service-price" style="@GetPriceTextStyle()">
+                                        <span class="public-service-price">
                                             @service.DurationMinutes min · @service.Price.ToString("0.00") kr
                                         </span>
                                     </article>
@@ -651,9 +647,11 @@ else
         Db.Bookings.Add(booking);
         await Db.SaveChangesAsync();
 
-        await SendBookingEmailsAsync(booking.Id);
+        var emailsSent = await SendBookingEmailsAsync(booking.Id);
 
-        successMessage = "Din bokningsförfrågan har skickats. Du får ett mail med detaljerna.";
+        successMessage = emailsSent
+            ? "Din bokningsförfrågan har skickats. Du får ett mail med detaljerna."
+            : "Bokningen skapades, men mailet kunde inte skickas just nu.";
 
         ResetBookingForm();
         PrefillCustomerFromAccount();
@@ -663,7 +661,7 @@ else
         isSubmitting = false;
     }
 
-    private async Task SendBookingEmailsAsync(int bookingId)
+    private async Task<bool> SendBookingEmailsAsync(int bookingId)
     {
         var savedBooking = await Db.Bookings
             .AsNoTracking()
@@ -673,7 +671,7 @@ else
             .FirstOrDefaultAsync(b => b.Id == bookingId);
 
         if (savedBooking is null)
-            return;
+            return false;
 
         try
         {
@@ -688,10 +686,14 @@ else
                 trackedBooking.UpdatedAt = DateTime.UtcNow;
                 await Db.SaveChangesAsync();
             }
+
+            return true;
         }
-        catch
+        catch (Exception ex)
         {
-            successMessage = "Bokningen skapades, men mailet kunde inte skickas just nu.";
+            var logger = LoggerFactory.CreateLogger("PublicBookingPage");
+            logger.LogError(ex, "Could not send booking emails for booking {BookingId}", bookingId);
+            return false;
         }
     }
 
@@ -780,11 +782,43 @@ else
         return name[0].ToString().ToUpper();
     }
 
-    private string GetPageStyle()
+    private string GetPublicThemeStyle()
     {
-        return business is null
-            ? ""
-            : $"background:{business.PageBackgroundColor}; color:{business.BodyTextColor};";
+        if (business is null)
+            return "";
+
+        return string.Join(" ",
+            $"--public-page-bg:{CssValue(business.PageBackgroundColor, "#F8F4ED")};",
+            $"--public-section-bg:{CssValue(business.SectionBackgroundColor, "#FFFFFF")};",
+            $"--public-card-bg:{CssValue(business.CardBackgroundColor, "#FFFFFF")};",
+            $"--public-service-card-bg:{CssValue(business.ServiceCardBackgroundColor, "#FFFFFF")};",
+            $"--public-staff-card-bg:{CssValue(business.StaffCardBackgroundColor, "#FFFFFF")};",
+            $"--public-booking-panel-bg:{CssValue(business.BookingPanelBackgroundColor, "#FFFFFF")};",
+            $"--public-heading:{CssValue(business.HeadingTextColor, "#151515")};",
+            $"--public-body:{CssValue(business.BodyTextColor, "#4B5563")};",
+            $"--public-muted:{CssValue(business.MutedTextColor, "#7A6F63")};",
+            $"--public-primary:{CssValue(business.PrimaryColor, "#151515")};",
+            $"--public-secondary:{CssValue(business.SecondaryColor, "#C9A46A")};",
+            $"--public-button-bg:{CssValue(business.ButtonBackgroundColor, "#151515")};",
+            $"--public-button-text:{CssValue(business.ButtonTextColor, "#FFFFFF")};",
+            $"--public-secondary-button-bg:{CssValue(business.SecondaryButtonBackgroundColor, "#FFFFFF")};",
+            $"--public-secondary-button-text:{CssValue(business.SecondaryButtonTextColor, "#151515")};",
+            $"--public-price:{CssValue(business.PriceTextColor, "#151515")};",
+            $"--public-success:{CssValue(business.SuccessColor, "#087443")};",
+            $"--public-warning:{CssValue(business.WarningColor, "#B45309")};",
+            $"--public-danger:{CssValue(business.DangerColor, "#B42318")};",
+            $"--public-input-bg:{CssValue(business.InputBackgroundColor, "#FFFFFF")};",
+            $"--public-input-text:{CssValue(business.InputTextColor, "#151515")};",
+            $"--public-input-border:{CssValue(business.InputBorderColor, "#E5E7EB")};",
+            $"--public-input-focus:{CssValue(business.InputFocusColor, "#C9A46A")};",
+            $"--public-label:{CssValue(business.LabelTextColor, "#374151")};",
+            $"--public-time-bg:{CssValue(business.TimeSlotBackgroundColor, "#FFFFFF")};",
+            $"--public-time-text:{CssValue(business.TimeSlotTextColor, "#151515")};",
+            $"--public-time-active-bg:{CssValue(business.TimeSlotActiveBackgroundColor, "#151515")};",
+            $"--public-time-active-text:{CssValue(business.TimeSlotActiveTextColor, "#FFFFFF")};",
+            $"background-color:{CssValue(business.PageBackgroundColor, "#F8F4ED")};",
+            $"color:{CssValue(business.BodyTextColor, "#4B5563")};"
+        );
     }
 
     private string GetHeroStyle()
@@ -792,31 +826,21 @@ else
         if (business is null)
             return "";
 
+        var heroText = CssValue(business.HeroTextColor, "#FFFFFF");
+
         if (string.IsNullOrWhiteSpace(business.CoverImageUrl))
-            return $"background:linear-gradient(135deg,{business.PrimaryColor},{business.SecondaryColor}); color:{business.HeroTextColor};";
+        {
+            return $"background-image:linear-gradient(135deg,{CssValue(business.PrimaryColor, "#151515")},{CssValue(business.SecondaryColor, "#C9A46A")}); color:{heroText};";
+        }
 
-        return $"background:linear-gradient({business.HeroOverlayColor},{business.HeroOverlayColor}), url('{business.CoverImageUrl}') center/cover; color:{business.HeroTextColor};";
+        var overlay = CssValue(business.HeroOverlayColor, "rgba(0,0,0,.55)");
+
+        return $"background-image:linear-gradient({overlay},{overlay}), url('{business.CoverImageUrl}'); background-position:center; background-size:cover; color:{heroText};";
     }
 
-    private string GetButtonStyle()
+    private static string CssValue(string? value, string fallback)
     {
-        return business is null
-            ? ""
-            : $"background:{business.ButtonBackgroundColor}; color:{business.ButtonTextColor};";
-    }
-
-    private string GetServiceCardStyle()
-    {
-        return business is null
-            ? ""
-            : $"background:{business.ServiceCardBackgroundColor}; color:{business.BodyTextColor};";
-    }
-
-    private string GetPriceTextStyle()
-    {
-        return business is null
-            ? ""
-            : $"color:{business.PriceTextColor} !important;";
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 
     private sealed class PublicDayHoursModel
@@ -831,13 +855,9 @@ else
         }
 
         public string Label { get; }
-
         public DayOfWeek Day { get; }
-
         public bool IsOpen { get; }
-
         public TimeSpan Open { get; }
-
         public TimeSpan Close { get; }
     }
 }

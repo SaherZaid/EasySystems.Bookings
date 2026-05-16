@@ -248,28 +248,53 @@ else
                         <div class="settings-color-grid">
                             <ColorInput Label="Huvudfärg" @bind-Value="business.PrimaryColor" />
                             <ColorInput Label="Sekundär färg" @bind-Value="business.SecondaryColor" />
+
                             <ColorInput Label="Sidbakgrund" @bind-Value="business.PageBackgroundColor" />
                             <ColorInput Label="Sektionsbakgrund" @bind-Value="business.SectionBackgroundColor" />
                             <ColorInput Label="Kortbakgrund" @bind-Value="business.CardBackgroundColor" />
+
                             <ColorInput Label="Rubriker" @bind-Value="business.HeadingTextColor" />
                             <ColorInput Label="Text" @bind-Value="business.BodyTextColor" />
                             <ColorInput Label="Diskret text" @bind-Value="business.MutedTextColor" />
+
                             <ColorInput Label="Huvudknapp" @bind-Value="business.ButtonBackgroundColor" />
                             <ColorInput Label="Huvudknapp text" @bind-Value="business.ButtonTextColor" />
                             <ColorInput Label="Sekundär knapp" @bind-Value="business.SecondaryButtonBackgroundColor" />
                             <ColorInput Label="Sekundär knapp text" @bind-Value="business.SecondaryButtonTextColor" />
+
                             <ColorInput Label="Toppmeny bakgrund" @bind-Value="business.NavbarBackgroundColor" />
                             <ColorInput Label="Toppmeny text" @bind-Value="business.NavbarTextColor" />
+
                             <ColorInput Label="Sidfot bakgrund" @bind-Value="business.FooterBackgroundColor" />
                             <ColorInput Label="Sidfot text" @bind-Value="business.FooterTextColor" />
+
                             <ColorInput Label="Hero-text" @bind-Value="business.HeroTextColor" />
                             <ColorInput Label="Tjänstekort" @bind-Value="business.ServiceCardBackgroundColor" />
                             <ColorInput Label="Personalkort" @bind-Value="business.StaffCardBackgroundColor" />
                             <ColorInput Label="Bokningspanel" @bind-Value="business.BookingPanelBackgroundColor" />
                             <ColorInput Label="Prisfärg" @bind-Value="business.PriceTextColor" />
+
                             <ColorInput Label="Success" @bind-Value="business.SuccessColor" />
                             <ColorInput Label="Varning" @bind-Value="business.WarningColor" />
                             <ColorInput Label="Fara" @bind-Value="business.DangerColor" />
+                        </div>
+
+                        <h2>Kundsidans formulär</h2>
+                        <small>De här färgerna påverkar bokningssidan, kundens bokningar och alla publika formulär.</small>
+
+                        <div class="settings-color-grid">
+                            <ColorInput Label="Fältbakgrund" @bind-Value="business.InputBackgroundColor" />
+                            <ColorInput Label="Fälttext" @bind-Value="business.InputTextColor" />
+                            <ColorInput Label="Fältkant" @bind-Value="business.InputBorderColor" />
+                            <ColorInput Label="Fokusfärg" @bind-Value="business.InputFocusColor" />
+                            <ColorInput Label="Etikett-text" @bind-Value="business.LabelTextColor" />
+
+                            <ColorInput Label="Tidknapp bakgrund" @bind-Value="business.TimeSlotBackgroundColor" />
+                            <ColorInput Label="Tidknapp text" @bind-Value="business.TimeSlotTextColor" />
+                            <ColorInput Label="Vald tid bakgrund" @bind-Value="business.TimeSlotActiveBackgroundColor" />
+                            <ColorInput Label="Vald tid text" @bind-Value="business.TimeSlotActiveTextColor" />
+
+                            <ColorInput Label="Kundportal kort" @bind-Value="business.CustomerPortalCardColor" />
                         </div>
 
                         <label>Mörkt lager över omslagsbild</label>
@@ -351,11 +376,30 @@ else
                                 <strong style="@GetHeadingTextStyle()">Bokningspanel</strong>
                                 <p style="@GetBodyTextStyle()">Datum, tider och kundinformation visas här.</p>
 
+                                <div class="preview-form-demo">
+                                    <label style="@GetLabelTextStyle()">Namn</label>
+                                    <input readonly value="Exempel kund" style="@GetInputStyle()" />
+
+                                    <label style="@GetLabelTextStyle()">E-post</label>
+                                    <input readonly value="kund@email.se" style="@GetInputStyle()" />
+
+                                    <div class="preview-time-demo">
+                                        <span style="@GetTimeSlotStyle()">10:00</span>
+                                        <span style="@GetActiveTimeSlotStyle()">10:30</span>
+                                        <span style="@GetTimeSlotStyle()">11:00</span>
+                                    </div>
+                                </div>
+
                                 <div class="preview-status-row">
                                     <span style="@GetSuccessStatusStyle()">Bekräftad</span>
                                     <span style="@GetWarningStatusStyle()">Väntar</span>
                                     <span style="@GetDangerStatusStyle()">Avbokad</span>
                                 </div>
+                            </div>
+
+                            <div class="preview-customer-card" style="@GetCustomerPortalCardStyle()">
+                                <strong style="@GetHeadingTextStyle()">Mina bokningar</strong>
+                                <p style="@GetBodyTextStyle()">Kundens portal använder samma färger.</p>
                             </div>
 
                             <div class="preview-footer" style="@GetFooterStyle()">
@@ -658,29 +702,50 @@ else
 
         business.PrimaryColor = CssValue(business.PrimaryColor, "#151515");
         business.SecondaryColor = CssValue(business.SecondaryColor, "#C9A46A");
+
         business.PageBackgroundColor = CssValue(business.PageBackgroundColor, "#F8F4ED");
         business.SectionBackgroundColor = CssValue(business.SectionBackgroundColor, "#FFFFFF");
         business.CardBackgroundColor = CssValue(business.CardBackgroundColor, "#FFFFFF");
+
         business.HeadingTextColor = CssValue(business.HeadingTextColor, "#151515");
         business.BodyTextColor = CssValue(business.BodyTextColor, "#4B5563");
         business.MutedTextColor = CssValue(business.MutedTextColor, "#7A6F63");
+
         business.ButtonBackgroundColor = CssValue(business.ButtonBackgroundColor, "#151515");
         business.ButtonTextColor = CssValue(business.ButtonTextColor, "#FFFFFF");
         business.SecondaryButtonBackgroundColor = CssValue(business.SecondaryButtonBackgroundColor, "#FFFFFF");
         business.SecondaryButtonTextColor = CssValue(business.SecondaryButtonTextColor, "#151515");
+
         business.NavbarBackgroundColor = CssValue(business.NavbarBackgroundColor, "#FFFFFF");
         business.NavbarTextColor = CssValue(business.NavbarTextColor, "#151515");
+
         business.FooterBackgroundColor = CssValue(business.FooterBackgroundColor, "#151515");
         business.FooterTextColor = CssValue(business.FooterTextColor, "#FFFFFF");
+
         business.HeroTextColor = CssValue(business.HeroTextColor, "#FFFFFF");
         business.HeroOverlayColor = CssValue(business.HeroOverlayColor, "rgba(0,0,0,.55)");
+
         business.ServiceCardBackgroundColor = CssValue(business.ServiceCardBackgroundColor, "#FFFFFF");
-        business.PriceTextColor = CssValue(business.PriceTextColor, "#151515");
         business.StaffCardBackgroundColor = CssValue(business.StaffCardBackgroundColor, "#FFFFFF");
         business.BookingPanelBackgroundColor = CssValue(business.BookingPanelBackgroundColor, "#FFFFFF");
+        business.PriceTextColor = CssValue(business.PriceTextColor, "#151515");
+
         business.SuccessColor = CssValue(business.SuccessColor, "#087443");
         business.WarningColor = CssValue(business.WarningColor, "#B45309");
         business.DangerColor = CssValue(business.DangerColor, "#B42318");
+
+        business.InputBackgroundColor = CssValue(business.InputBackgroundColor, "#FFFFFF");
+        business.InputTextColor = CssValue(business.InputTextColor, "#151515");
+        business.InputBorderColor = CssValue(business.InputBorderColor, "#E5E7EB");
+        business.InputFocusColor = CssValue(business.InputFocusColor, "#C9A46A");
+        business.LabelTextColor = CssValue(business.LabelTextColor, "#374151");
+
+        business.TimeSlotBackgroundColor = CssValue(business.TimeSlotBackgroundColor, "#FFFFFF");
+        business.TimeSlotTextColor = CssValue(business.TimeSlotTextColor, "#151515");
+        business.TimeSlotActiveBackgroundColor = CssValue(business.TimeSlotActiveBackgroundColor, "#151515");
+        business.TimeSlotActiveTextColor = CssValue(business.TimeSlotActiveTextColor, "#FFFFFF");
+
+        business.CustomerPortalCardColor = CssValue(business.CustomerPortalCardColor, "#FFFFFF");
     }
 
     private static string CssValue(string? value, string fallback) =>
@@ -770,6 +835,36 @@ else
 
     private string GetDangerStatusStyle() =>
         business is null ? "" : $"background-color:{CssValue(business.DangerColor, "#B42318")};";
+
+    private string GetLabelTextStyle() =>
+        business is null ? "" : $"color:{CssValue(business.LabelTextColor, "#374151")};";
+
+    private string GetInputStyle()
+    {
+        if (business is null)
+            return "";
+
+        return $"background-color:{CssValue(business.InputBackgroundColor, "#FFFFFF")}; color:{CssValue(business.InputTextColor, "#151515")}; border:1px solid {CssValue(business.InputBorderColor, "#E5E7EB")};";
+    }
+
+    private string GetTimeSlotStyle()
+    {
+        if (business is null)
+            return "";
+
+        return $"background-color:{CssValue(business.TimeSlotBackgroundColor, "#FFFFFF")}; color:{CssValue(business.TimeSlotTextColor, "#151515")}; border:1px solid {CssValue(business.InputBorderColor, "#E5E7EB")};";
+    }
+
+    private string GetActiveTimeSlotStyle()
+    {
+        if (business is null)
+            return "";
+
+        return $"background-color:{CssValue(business.TimeSlotActiveBackgroundColor, "#151515")}; color:{CssValue(business.TimeSlotActiveTextColor, "#FFFFFF")}; border:1px solid {CssValue(business.TimeSlotActiveBackgroundColor, "#151515")};";
+    }
+
+    private string GetCustomerPortalCardStyle() =>
+        business is null ? "" : $"background-color:{CssValue(business.CustomerPortalCardColor, "#FFFFFF")}; color:{CssValue(business.BodyTextColor, "#4B5563")};";
 
     private string GetHeroStyle()
     {
