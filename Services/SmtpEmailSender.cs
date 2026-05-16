@@ -21,7 +21,7 @@ public class EmailSettings
     public string CompanyName { get; set; } = "EasySystems";
 }
 
-public class SmtpEmailSender : IEmailSender<ApplicationUser>
+public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSender
 {
     private readonly EmailSettings _settings;
     private readonly HtmlEncoder _htmlEncoder;
@@ -45,16 +45,17 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>
         await SendEmailAsync(
             toEmail: email,
             businessName: businessName,
-            subject: $"Confirm your email | {businessName}",
-            preHeader: $"Welcome to {businessName}, powered by {_settings.CompanyName}.",
-            title: "Welcome, your booking account is ready",
+            subject: $"Bekräfta din e-post | {businessName}",
+            preHeader: $"Välkommen till {businessName}, powered by {_settings.CompanyName}.",
+            title: "Välkommen, ditt bokningskonto är redo",
             message: $"""
-            We are happy to welcome you to <strong>{Encode(businessName)}</strong>.
-            Please confirm your email to activate your account and securely manage your bookings.
+            <p>Hej!</p>
+            <p>Vi är glada att välkomna dig till <strong>{Encode(businessName)}</strong>.</p>
+            <p>Bekräfta din e-postadress för att aktivera ditt konto och hantera dina bokningar tryggt.</p>
             """,
-            buttonText: "Confirm email",
+            buttonText: "Bekräfta e-post",
             buttonUrl: safeLink,
-            footerNote: $"This email was sent by {_settings.CompanyName} for {businessName}."
+            footerNote: $"Detta mail skickades av {_settings.CompanyName} för {businessName}."
         );
     }
 
@@ -66,16 +67,16 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>
         await SendEmailAsync(
             toEmail: email,
             businessName: businessName,
-            subject: $"Reset your password | {businessName}",
-            preHeader: $"Password reset request for your {businessName} account.",
-            title: "Reset your password",
+            subject: $"Återställ lösenord | {businessName}",
+            preHeader: $"Återställ lösenordet för ditt konto hos {businessName}.",
+            title: "Återställ ditt lösenord",
             message: $"""
-            We received a request to reset the password for your <strong>{Encode(businessName)}</strong> account.
-            Click the button below to create a new secure password.
+            <p>Vi har fått en begäran om att återställa lösenordet för ditt konto hos <strong>{Encode(businessName)}</strong>.</p>
+            <p>Klicka på knappen nedan för att skapa ett nytt säkert lösenord.</p>
             """,
-            buttonText: "Reset password",
+            buttonText: "Återställ lösenord",
             buttonUrl: safeLink,
-            footerNote: "If you did not request this, you can safely ignore this email."
+            footerNote: "Om du inte begärde detta kan du ignorera mailet."
         );
     }
 
@@ -86,15 +87,63 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>
         await SendEmailAsync(
             toEmail: email,
             businessName: businessName,
-            subject: $"Your reset code | {businessName}",
-            preHeader: $"Use this code to reset your {businessName} password.",
-            title: "Your password reset code",
+            subject: $"Din återställningskod | {businessName}",
+            preHeader: $"Använd koden för att återställa lösenordet.",
+            title: "Din återställningskod",
             message: """
-            Use the code below to continue resetting your password.
-            For your security, do not share this code with anyone.
+            <p>Använd koden nedan för att fortsätta återställningen av ditt lösenord.</p>
+            <p>Dela inte koden med någon.</p>
             """,
             code: resetCode,
             footerNote: $"Powered by {_settings.CompanyName}."
+        );
+    }
+
+    public async Task SendBookingCreatedToCustomerAsync(Booking booking)
+    {
+        if (string.IsNullOrWhiteSpace(booking.CustomerEmail))
+            return;
+
+        await SendEmailAsync(
+            toEmail: booking.CustomerEmail,
+            businessName: booking.Business.Name,
+            subject: $"Din bokningsförfrågan är mottagen | {booking.Business.Name}",
+            preHeader: $"Vi har tagit emot din bokningsförfrågan hos {booking.Business.Name}.",
+            title: "Din bokningsförfrågan är mottagen",
+            message: BuildBookingCustomerMessage(booking),
+            footerNote: $"Du får ett nytt mail när {booking.Business.Name} uppdaterar statusen på din bokning."
+        );
+    }
+
+    public async Task SendBookingCreatedToBusinessAsync(Booking booking)
+    {
+        if (string.IsNullOrWhiteSpace(booking.Business.Email))
+            return;
+
+        await SendEmailAsync(
+            toEmail: booking.Business.Email,
+            businessName: booking.Business.Name,
+            subject: $"Ny bokningsförfrågan | {booking.CustomerName}",
+            preHeader: "En ny kund har skickat en bokningsförfrågan.",
+            title: "Ny bokningsförfrågan",
+            message: BuildBookingBusinessMessage(booking),
+            footerNote: "Logga in i EasySystems för att bekräfta, ändra eller avboka bokningen."
+        );
+    }
+
+    public async Task SendBookingStatusChangedToCustomerAsync(Booking booking)
+    {
+        if (string.IsNullOrWhiteSpace(booking.CustomerEmail))
+            return;
+
+        await SendEmailAsync(
+            toEmail: booking.CustomerEmail,
+            businessName: booking.Business.Name,
+            subject: $"Din bokning är {TranslateStatus(booking.Status).ToLower()} | {booking.Business.Name}",
+            preHeader: "Statusen för din bokning har uppdaterats.",
+            title: $"Din bokning är {TranslateStatus(booking.Status).ToLower()}",
+            message: BuildBookingStatusMessage(booking),
+            footerNote: $"Detta mail skickades av {_settings.CompanyName} för {booking.Business.Name}."
         );
     }
 
@@ -110,8 +159,85 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>
             .FirstOrDefaultAsync();
 
         return string.IsNullOrWhiteSpace(businessName)
-            ? "your booking account"
+            ? "EasySystems Bookings"
             : businessName;
+    }
+
+    private string BuildBookingCustomerMessage(Booking booking)
+    {
+        return $"""
+        <p>Hej <strong>{Encode(booking.CustomerName)}</strong>,</p>
+        <p>Vi har tagit emot din bokningsförfrågan. Bokningen är just nu <strong>väntande</strong>.</p>
+
+        {BuildBookingDetailsBox(booking)}
+
+        <p>Du får ett nytt mail när bokningen bekräftas, ändras eller avbokas.</p>
+        """;
+    }
+
+    private string BuildBookingBusinessMessage(Booking booking)
+    {
+        return $"""
+        <p>En ny bokningsförfrågan har kommit in.</p>
+
+        {BuildBookingDetailsBox(booking)}
+
+        <div style="margin:22px 0 0;padding:18px;border-radius:22px;background:#f9fafb;border:1px solid #e5e7eb;">
+          <p style="margin:0 0 8px;"><strong>Kundens kontakt</strong></p>
+          <p style="margin:0 0 6px;">E-post: {Encode(booking.CustomerEmail ?? "Saknas")}</p>
+          <p style="margin:0;">Telefon: {Encode(booking.CustomerPhone ?? "Saknas")}</p>
+        </div>
+        """;
+    }
+
+    private string BuildBookingStatusMessage(Booking booking)
+    {
+        var cancellationReason = booking.Status == "Cancelled" && !string.IsNullOrWhiteSpace(booking.CancellationReason)
+            ? $"""
+              <div style="margin:22px 0 0;padding:18px;border-radius:22px;background:#fff7ed;border:1px solid #fed7aa;">
+                <p style="margin:0;"><strong>Orsak:</strong> {Encode(booking.CancellationReason)}</p>
+              </div>
+              """
+            : "";
+
+        return $"""
+        <p>Hej <strong>{Encode(booking.CustomerName)}</strong>,</p>
+        <p>Statusen för din bokning har uppdaterats till <strong>{Encode(TranslateStatus(booking.Status))}</strong>.</p>
+
+        {BuildBookingDetailsBox(booking)}
+
+        {cancellationReason}
+        """;
+    }
+
+    private string BuildBookingDetailsBox(Booking booking)
+    {
+        return $"""
+        <div style="margin:24px 0;padding:22px;border-radius:26px;background:#fffaf4;border:1px solid #eadfd3;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding:8px 0;color:#7a6f63;font-size:13px;font-weight:700;">Tjänst</td>
+              <td align="right" style="padding:8px 0;color:#151515;font-size:14px;font-weight:800;">{Encode(booking.Service.Name)}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;color:#7a6f63;font-size:13px;font-weight:700;">Personal</td>
+              <td align="right" style="padding:8px 0;color:#151515;font-size:14px;font-weight:800;">{Encode(booking.StaffMember.FullName)}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;color:#7a6f63;font-size:13px;font-weight:700;">Datum</td>
+              <td align="right" style="padding:8px 0;color:#151515;font-size:14px;font-weight:800;">{booking.StartTime:yyyy-MM-dd}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;color:#7a6f63;font-size:13px;font-weight:700;">Tid</td>
+              <td align="right" style="padding:8px 0;color:#151515;font-size:14px;font-weight:800;">{booking.StartTime:HH:mm} - {booking.EndTime:HH:mm}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;color:#7a6f63;font-size:13px;font-weight:700;">Status</td>
+              <td align="right" style="padding:8px 0;color:#151515;font-size:14px;font-weight:900;">{Encode(TranslateStatus(booking.Status))}</td>
+            </tr>
+          </table>
+        </div>
+        """;
     }
 
     private async Task SendEmailAsync(
@@ -180,11 +306,11 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>
         var buttonHtml = !string.IsNullOrWhiteSpace(buttonText) && !string.IsNullOrWhiteSpace(buttonUrl)
             ? $"""
               <tr>
-                <td align="center" style="padding: 30px 0 10px;">
+                <td align="center" style="padding:30px 0 10px;">
                   <a href="{buttonUrl}"
-                     style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;
-                            padding:15px 30px;border-radius:999px;font-weight:800;font-size:15px;
-                            box-shadow:0 14px 34px rgba(17,24,39,.24);">
+                     style="display:inline-block;background:#c9a46a;color:#151515;text-decoration:none;
+                            padding:15px 30px;border-radius:999px;font-weight:900;font-size:15px;
+                            box-shadow:0 14px 34px rgba(201,164,106,.26);">
                     {Encode(buttonText)}
                   </a>
                 </td>
@@ -195,10 +321,10 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>
         var codeHtml = !string.IsNullOrWhiteSpace(code)
             ? $"""
               <tr>
-                <td align="center" style="padding: 28px 0 12px;">
-                  <div style="display:inline-block;letter-spacing:8px;background:#f3f4f6;color:#111827;
-                              padding:18px 26px;border-radius:20px;font-size:30px;font-weight:900;
-                              border:1px solid #e5e7eb;">
+                <td align="center" style="padding:28px 0 12px;">
+                  <div style="display:inline-block;letter-spacing:8px;background:#fffaf4;color:#151515;
+                              padding:18px 26px;border-radius:22px;font-size:30px;font-weight:900;
+                              border:1px solid #eadfd3;">
                     {Encode(code)}
                   </div>
                 </td>
@@ -208,36 +334,37 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>
 
         return $$"""
         <!doctype html>
-        <html lang="en">
+        <html lang="sv">
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1">
           <title>{{Encode(title)}}</title>
         </head>
 
-        <body style="margin:0;padding:0;background:#f6f2ec;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+        <body style="margin:0;padding:0;background:#f8f4ed;font-family:Arial,Helvetica,sans-serif;color:#151515;">
           <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
             {{Encode(preHeader)}}
           </div>
 
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f2ec;padding:38px 16px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8f4ed;padding:38px 16px;">
             <tr>
               <td align="center">
+
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
                        style="max-width:660px;background:#ffffff;border-radius:34px;overflow:hidden;
-                              box-shadow:0 28px 80px rgba(17,24,39,.14);">
+                              box-shadow:0 28px 80px rgba(34,24,18,.12);border:1px solid #eadfd3;">
 
                   <tr>
-                    <td style="background:linear-gradient(135deg,#111827,#2f3542,#6b5b4f);padding:38px 36px;color:#ffffff;">
-                      <div style="font-size:12px;text-transform:uppercase;letter-spacing:2.4px;opacity:.78;font-weight:700;">
+                    <td style="background:linear-gradient(135deg,#fffaf4,#ffffff);padding:38px 36px;color:#151515;border-bottom:1px solid #eadfd3;">
+                      <div style="font-size:12px;text-transform:uppercase;letter-spacing:2.4px;color:#9a7b4f;font-weight:900;">
                         {{companyName}}
                       </div>
 
-                      <div style="font-size:32px;font-weight:900;margin-top:10px;line-height:1.2;">
+                      <div style="font-size:32px;font-weight:900;margin-top:10px;line-height:1.2;color:#151515;">
                         {{safeBusinessName}}
                       </div>
 
-                      <div style="font-size:14px;margin-top:10px;opacity:.82;">
+                      <div style="font-size:14px;margin-top:10px;color:#7a6f63;">
                         Smart online bookings, beautifully managed.
                       </div>
                     </td>
@@ -245,7 +372,7 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>
 
                   <tr>
                     <td style="padding:40px 36px 18px;">
-                      <h1 style="margin:0;font-size:29px;line-height:1.25;color:#111827;">
+                      <h1 style="margin:0;font-size:29px;line-height:1.25;color:#151515;">
                         {{Encode(title)}}
                       </h1>
 
@@ -260,17 +387,18 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>
 
                   <tr>
                     <td style="padding:28px 36px 38px;">
-                      <div style="border-top:1px solid #eeeeee;padding-top:22px;font-size:13px;line-height:1.7;color:#6b7280;">
-                        {{Encode(footerNote ?? $"Sent by {_settings.CompanyName} for {businessName}.")}}
+                      <div style="border-top:1px solid #eadfd3;padding-top:22px;font-size:13px;line-height:1.7;color:#7a6f63;">
+                        {{Encode(footerNote ?? $"Skickat av {_settings.CompanyName} för {businessName}.")}}
                       </div>
                     </td>
                   </tr>
 
                 </table>
 
-                <div style="font-size:12px;color:#9ca3af;margin-top:18px;">
+                <div style="font-size:12px;color:#9b9288;margin-top:18px;">
                   © {{DateTime.Now.Year}} {{companyName}}. Built for modern service businesses.
                 </div>
+
               </td>
             </tr>
           </table>
@@ -279,9 +407,20 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>
         """;
     }
 
-    private string Encode(string value)
+    private string Encode(string? value)
     {
         return _htmlEncoder.Encode(value ?? "");
+    }
+
+    private static string TranslateStatus(string status)
+    {
+        return status switch
+        {
+            "Pending" => "Väntande",
+            "Confirmed" => "Bekräftad",
+            "Cancelled" => "Avbokad",
+            _ => status
+        };
     }
 
     private void ValidateSettings()
@@ -294,5 +433,89 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>
 
         if (string.IsNullOrWhiteSpace(_settings.Password))
             throw new InvalidOperationException("EmailSettings:Password is missing.");
+    }
+
+    public async Task SendBookingConfirmedToCustomerAsync(Booking booking)
+    {
+        if (string.IsNullOrWhiteSpace(booking.CustomerEmail))
+            return;
+
+        await SendEmailAsync(
+            toEmail: booking.CustomerEmail,
+            businessName: booking.Business.Name,
+            subject: $"Din bokning är bekräftad | {booking.Business.Name}",
+            preHeader: "Din bokning har blivit bekräftad.",
+            title: "Din bokning är bekräftad",
+            message: $"""
+        <p>Hej <strong>{Encode(booking.CustomerName)}</strong>,</p>
+
+        <p>Din bokning har nu blivit <strong>bekräftad</strong>.</p>
+
+        {BuildBookingDetailsBox(booking)}
+
+        <p>Vi ser fram emot ditt besök hos <strong>{Encode(booking.Business.Name)}</strong>.</p>
+        """,
+            footerNote: $"Tack för att du bokar hos {booking.Business.Name}."
+        );
+    }
+
+    public async Task SendBookingCancelledToCustomerAsync(Booking booking)
+    {
+        if (string.IsNullOrWhiteSpace(booking.CustomerEmail))
+            return;
+
+        await SendEmailAsync(
+            toEmail: booking.CustomerEmail,
+            businessName: booking.Business.Name,
+            subject: $"Din bokning har avbokats | {booking.Business.Name}",
+            preHeader: "Din bokning har blivit avbokad.",
+            title: "Din bokning har avbokats",
+            message: $"""
+        <p>Hej <strong>{Encode(booking.CustomerName)}</strong>,</p>
+
+        <p>Din bokning har blivit <strong>avbokad</strong>.</p>
+
+        {BuildBookingDetailsBox(booking)}
+
+        {(string.IsNullOrWhiteSpace(booking.CancellationReason)
+                ? ""
+                : $"""
+            <div style="margin-top:22px;padding:18px;border-radius:22px;background:#fff7ed;border:1px solid #fed7aa;">
+                <p style="margin:0;">
+                    <strong>Orsak:</strong>
+                    {Encode(booking.CancellationReason)}
+                </p>
+            </div>
+            """)}
+        """,
+            footerNote: "Kontakta verksamheten om du har frågor kring avbokningen."
+        );
+    }
+
+    public async Task SendBookingCancelledToBusinessAsync(Booking booking)
+    {
+        if (string.IsNullOrWhiteSpace(booking.Business.Email))
+            return;
+
+        await SendEmailAsync(
+            toEmail: booking.Business.Email,
+            businessName: booking.Business.Name,
+            subject: $"Kunden avbokade en tid | {booking.CustomerName}",
+            preHeader: "En kund har avbokat sin bokning.",
+            title: "Bokning avbokad av kund",
+            message: $"""
+        <p>Kunden <strong>{Encode(booking.CustomerName)}</strong> har avbokat sin bokning.</p>
+
+        {BuildBookingDetailsBox(booking)}
+
+        <div style="margin-top:22px;padding:18px;border-radius:22px;background:#fff7ed;border:1px solid #fed7aa;">
+            <p style="margin:0;">
+                <strong>Orsak:</strong>
+                {Encode(booking.CancellationReason ?? "Ingen orsak angiven")}
+            </p>
+        </div>
+        """,
+            footerNote: "Logga in i EasySystems för att hantera bokningen."
+        );
     }
 }

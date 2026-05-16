@@ -4,12 +4,15 @@
 @using EasySystems.Bookings.Components.Admin
 @using EasySystems.Bookings.Data
 @using EasySystems.Bookings.Data.Entities
+@using EasySystems.Bookings.Services
 @using Microsoft.EntityFrameworkCore
 @using System.Globalization
 
 @inherits AdminBusinessPageBase
 
 @inject ApplicationDbContext Db
+@inject IBookingEmailSender BookingEmailSender
+@inject ILogger<EditBooking> Logger
 
 <PageTitle>Redigera bokning | EasySystems</PageTitle>
 
@@ -56,14 +59,10 @@ else
                 <div class="admin-hero-actions">
                     @if (Permissions.CanManageCalendar)
                     {
-                        <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/calendar">
-                            Kalender
-                        </a>
+                        <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/calendar">Kalender</a>
                     }
 
-                    <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/bookings">
-                        Bokningar
-                    </a>
+                    <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/bookings">Bokningar</a>
                 </div>
             </section>
 
@@ -96,9 +95,7 @@ else
                             <h2>Tjänst och personal</h2>
 
                             <label>Tjänst</label>
-                            <InputSelect class="settings-input"
-                                         @bind-Value="booking.ServiceId"
-                                         @bind-Value:after="ReloadDayAsync">
+                            <InputSelect class="settings-input" @bind-Value="booking.ServiceId" @bind-Value:after="ReloadDayAsync">
                                 @foreach (var service in services)
                                 {
                                     <option value="@service.Id">
@@ -108,9 +105,7 @@ else
                             </InputSelect>
 
                             <label>Personal</label>
-                            <InputSelect class="settings-input"
-                                         @bind-Value="booking.StaffMemberId"
-                                         @bind-Value:after="ReloadDayAsync">
+                            <InputSelect class="settings-input" @bind-Value="booking.StaffMemberId" @bind-Value:after="ReloadDayAsync">
                                 @foreach (var staff in staffMembers)
                                 {
                                     <option value="@staff.Id">
@@ -128,17 +123,11 @@ else
                             <h2>Datum och tid</h2>
 
                             <div class="create-booking-date-row">
-                                <button type="button" class="booking-date-nav" @onclick="PreviousDay">
-                                    Föregående
-                                </button>
+                                <button type="button" class="booking-date-nav" @onclick="PreviousDay">Föregående</button>
 
-                                <InputDate class="settings-input"
-                                           @bind-Value="bookingDate"
-                                           @bind-Value:after="ReloadDayAsync" />
+                                <InputDate class="settings-input" @bind-Value="bookingDate" @bind-Value:after="ReloadDayAsync" />
 
-                                <button type="button" class="booking-date-nav" @onclick="NextDay">
-                                    Nästa
-                                </button>
+                                <button type="button" class="booking-date-nav" @onclick="NextDay">Nästa</button>
                             </div>
 
                             <div class="booking-date-title">
@@ -253,7 +242,6 @@ else
                 <aside class="edit-booking-side">
                     <section class="booking-summary-card">
                         <p class="admin-eyebrow">Bokning</p>
-
                         <h2>@GetSelectedServiceName()</h2>
 
                         <div class="booking-summary-list">
@@ -301,9 +289,7 @@ else
 
                         @if (!dayBookings.Any())
                         {
-                            <div class="booking-empty-day">
-                                Inga andra bokningar denna dag.
-                            </div>
+                            <div class="booking-empty-day">Inga andra bokningar denna dag.</div>
                         }
                         else
                         {
@@ -321,9 +307,7 @@ else
                                             <small>@item.StaffMember.FullName</small>
                                         </div>
 
-                                        <a href="/admin/businesses/@BusinessId/bookings/edit/@item.Id">
-                                            Ändra
-                                        </a>
+                                        <a href="/admin/businesses/@BusinessId/bookings/edit/@item.Id">Ändra</a>
                                     </article>
                                 }
                             </div>
@@ -356,6 +340,8 @@ else
 
     private Booking? booking;
     private Business? business;
+
+    private string originalStatus = "";
 
     private List<Service> services = [];
     private List<StaffMember> staffMembers = [];
@@ -399,6 +385,8 @@ else
             Navigation.NavigateTo($"/admin/businesses/{BusinessId}/bookings");
             return;
         }
+
+        originalStatus = booking.Status;
 
         services = await Db.Services
             .Where(s => s.BusinessId == BusinessId && (s.IsActive || s.Id == booking.ServiceId))
@@ -512,6 +500,8 @@ else
         if (booking is null || business is null)
             return;
 
+        isSaving = true;
+
         booking.CustomerName = booking.CustomerName.Trim();
         booking.CustomerEmail = booking.CustomerEmail?.Trim();
         booking.CustomerPhone = booking.CustomerPhone?.Trim();
@@ -519,6 +509,7 @@ else
         if (string.IsNullOrWhiteSpace(booking.CustomerName))
         {
             errorMessage = "Kundens namn krävs.";
+            isSaving = false;
             return;
         }
 
@@ -527,6 +518,7 @@ else
         if (service is null)
         {
             errorMessage = "Välj en tjänst.";
+            isSaving = false;
             return;
         }
 
@@ -535,6 +527,7 @@ else
         if (staff is null)
         {
             errorMessage = "Välj personal.";
+            isSaving = false;
             return;
         }
 
@@ -543,6 +536,7 @@ else
         if (dayHours is null || !dayHours.IsOpen)
         {
             errorMessage = "Verksamheten är stängd denna dag.";
+            isSaving = false;
             return;
         }
 
@@ -554,12 +548,14 @@ else
             booking.EndTime.TimeOfDay > dayHours.Close)
         {
             errorMessage = $"Bokningen måste vara inom öppettiderna: {dayHours.Open:hh\\:mm} - {dayHours.Close:hh\\:mm}.";
+            isSaving = false;
             return;
         }
 
         if (booking.IsPaid && booking.PaidAmount < 0)
         {
             errorMessage = "Betalt belopp kan inte vara negativt.";
+            isSaving = false;
             return;
         }
 
@@ -586,6 +582,7 @@ else
         if (hasConflict)
         {
             errorMessage = "Personalen har redan en bokning under denna tid.";
+            isSaving = false;
             await ReloadDayAsync();
             return;
         }
@@ -593,15 +590,50 @@ else
         if (!availableTimes.Contains(bookingTime))
         {
             errorMessage = "Välj en ledig tid från listan.";
+            isSaving = false;
             await ReloadDayAsync();
             return;
         }
 
-        isSaving = true;
-
         await Db.SaveChangesAsync();
 
+        await SendStatusEmailIfNeededAsync(booking.Id, originalStatus, booking.Status);
+
         Navigation.NavigateTo($"/admin/businesses/{BusinessId}/bookings");
+    }
+
+    private async Task SendStatusEmailIfNeededAsync(int bookingId, string oldStatus, string newStatus)
+    {
+        if (oldStatus == newStatus)
+            return;
+
+        var savedBooking = await Db.Bookings
+            .AsNoTracking()
+            .Include(b => b.Business)
+            .Include(b => b.Service)
+            .Include(b => b.StaffMember)
+            .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+        if (savedBooking is null)
+            return;
+
+        try
+        {
+            if (newStatus == "Confirmed")
+            {
+                await BookingEmailSender.SendBookingConfirmedToCustomerAsync(savedBooking);
+            }
+            else if (newStatus == "Cancelled")
+            {
+                await BookingEmailSender.SendBookingCancelledToCustomerAsync(savedBooking);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex,
+                "Failed to send booking status email for booking {BookingId}",
+                bookingId);
+        }
     }
 
     private void LoadWeeklyHours()

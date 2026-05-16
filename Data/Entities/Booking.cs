@@ -12,6 +12,10 @@ public class Booking
 
     public int StaffMemberId { get; set; }
 
+    public string? CustomerUserId { get; set; }
+
+    public ApplicationUser? CustomerUser { get; set; }
+
     [Required]
     [MaxLength(150)]
     public string CustomerName { get; set; } = string.Empty;

@@ -1,0 +1,483 @@
+﻿@page "/Account/Bookings"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using EasySystems.Bookings.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using System.Globalization
+
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+@inject IBookingEmailSender BookingEmailSender
+@inject ILogger<MyBookings> Logger
+
+
+<PageTitle>Mina bokningar | EasySystems</PageTitle>
+
+<div class="customer-portal-page" style="@GetCustomerPageStyle()">
+
+    <section class="customer-portal-hero" style="@GetCustomerHeroStyle()">
+        <div>
+            <p class="customer-portal-eyebrow">Kundportal</p>
+            <h1>Mina bokningar</h1>
+            <p>Se dina kommande tider, tidigare besök och hantera avbokningar enkelt.</p>
+        </div>
+
+        <div class="customer-portal-actions">
+            <a href="/" class="customer-portal-light-btn">
+                Boka ny tid
+            </a>
+        </div>
+    </section>
+
+    @if (isLoading)
+    {
+        <div class="customer-portal-loading">
+            <div class="customer-portal-spinner"></div>
+            <span>Laddar dina bokningar...</span>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="customer-portal-alert error">
+                @errorMessage
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="customer-portal-alert success">
+                @successMessage
+            </div>
+        }
+
+        <section class="customer-portal-stats">
+            <div class="customer-portal-stat">
+                <span>Kommande</span>
+                <strong>@upcomingBookings.Count</strong>
+            </div>
+
+            <div class="customer-portal-stat">
+                <span>Bekräftade</span>
+                <strong>@confirmedCount</strong>
+            </div>
+
+            <div class="customer-portal-stat">
+                <span>Väntande</span>
+                <strong>@pendingCount</strong>
+            </div>
+
+            <div class="customer-portal-stat">
+                <span>Avbokade</span>
+                <strong>@cancelledCount</strong>
+            </div>
+        </section>
+
+        <main class="customer-portal-layout">
+
+            <section class="customer-portal-main-card">
+                <div class="customer-portal-section-head">
+                    <div>
+                        <p>Dina tider</p>
+                        <h2>Kommande bokningar</h2>
+                    </div>
+                </div>
+
+                @if (!upcomingBookings.Any())
+                {
+                    <div class="customer-portal-empty">
+                        <h3>Inga kommande bokningar</h3>
+                        <p>Du har inga framtida bokningar just nu.</p>
+
+                        <a href="/" class="customer-portal-primary-btn" style="@GetCustomerButtonStyle()">
+                            Boka ny tid
+                        </a>
+                    </div>
+                }
+                else
+                {
+                    <div class="customer-portal-booking-list">
+                        @foreach (var booking in upcomingBookings)
+                        {
+                            <article class="customer-portal-booking-card" style="@GetCustomerCardStyle(booking)">
+                                <div class="customer-portal-booking-top">
+                                    <div>
+                                        <span class="customer-portal-business">
+                                            @booking.Business.Name
+                                        </span>
+
+                                        <h3>@booking.Service.Name</h3>
+
+                                        <p>
+                                            @booking.StaffMember.FullName
+                                            @if (!string.IsNullOrWhiteSpace(booking.StaffMember.Specialization))
+                                            {
+                                                @($" · {booking.StaffMember.Specialization}")
+                                            }
+                                        </p>
+                                    </div>
+
+                                    <span class="customer-portal-status @GetStatusClass(booking.Status)">
+                                        @GetStatusLabel(booking.Status)
+                                    </span>
+                                </div>
+
+                                <div class="customer-portal-booking-info-grid">
+                                    <div>
+                                        <span>Datum</span>
+                                        <strong>@booking.StartTime.ToString("dddd d MMMM yyyy", SwedishCulture)</strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Tid</span>
+                                        <strong>@booking.StartTime.ToString("HH:mm") - @booking.EndTime.ToString("HH:mm")</strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Pris</span>
+                                        <strong style="@GetPriceStyle(booking)">
+                                            @booking.Service.Price.ToString("0.00") kr
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Betalning</span>
+                                        <strong class="@(booking.IsPaid ? "paid" : "unpaid")">
+                                            @(booking.IsPaid ? "Betald" : "Ej betald")
+                                        </strong>
+                                    </div>
+                                </div>
+
+                                @if (!string.IsNullOrWhiteSpace(booking.Notes))
+                                {
+                                    <div class="customer-portal-note">
+                                        @booking.Notes
+                                    </div>
+                                }
+
+                                <div class="customer-portal-booking-actions">
+                                    @if (CanCancel(booking))
+                                    {
+                                        <button type="button"
+                                                class="customer-portal-cancel-btn"
+                                                disabled="@cancellingBookingIds.Contains(booking.Id)"
+                                                @onclick="() => CancelBookingAsync(booking.Id)">
+                                            @(cancellingBookingIds.Contains(booking.Id) ? "Avbokar..." : "Avboka")
+                                        </button>
+                                    }
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+            </section>
+
+            <aside class="customer-portal-side">
+                <section class="customer-portal-side-card">
+                    <div class="customer-portal-section-head small">
+                        <div>
+                            <p>Historik</p>
+                            <h2>Tidigare bokningar</h2>
+                        </div>
+                    </div>
+
+                    @if (!previousBookings.Any())
+                    {
+                        <div class="customer-portal-side-empty">
+                            Ingen historik ännu.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="customer-portal-history-list">
+                            @foreach (var booking in previousBookings)
+                            {
+                                <article class="customer-portal-history-item">
+                                    <div>
+                                        <strong>@booking.Service.Name</strong>
+                                        <span>@booking.Business.Name</span>
+                                    </div>
+
+                                    <div>
+                                        <small>@booking.StartTime.ToString("yyyy-MM-dd")</small>
+                                        <span class="customer-portal-status mini @GetStatusClass(booking.Status)">
+                                            @GetStatusLabel(booking.Status)
+                                        </span>
+                                    </div>
+                                </article>
+                            }
+                        </div>
+                    }
+                </section>
+
+                <section class="customer-portal-side-card">
+                    <div class="customer-portal-section-head small">
+                        <div>
+                            <p>Konto</p>
+                            <h2>@DisplayCustomerName()</h2>
+                        </div>
+                    </div>
+
+                    <div class="customer-portal-account-info">
+                        <div>
+                            <span>E-post</span>
+                            <strong>@DisplayOrFallback(currentUser?.Email, "Saknas")</strong>
+                        </div>
+
+                        <div>
+                            <span>Telefon</span>
+                            <strong>@DisplayOrFallback(currentUser?.PhoneNumber, "Saknas")</strong>
+                        </div>
+                    </div>
+                </section>
+            </aside>
+
+        </main>
+    }
+
+</div>
+
+@code {
+    private bool isLoading = true;
+
+    private ApplicationUser? currentUser;
+    private Business? themeBusiness;
+
+    private List<Booking> allBookings = [];
+    private List<Booking> upcomingBookings = [];
+    private List<Booking> previousBookings = [];
+
+    private HashSet<int> cancellingBookingIds = [];
+
+    private string? errorMessage;
+    private string? successMessage;
+
+    private int confirmedCount;
+    private int pendingCount;
+    private int cancelledCount;
+
+    private static readonly CultureInfo SwedishCulture = new("sv-SE");
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBookingsAsync();
+    }
+
+    private async Task LoadBookingsAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        successMessage = null;
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var principal = authState.User;
+
+        if (principal.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/Account/Login");
+            return;
+        }
+
+        currentUser = await UserManager.GetUserAsync(principal);
+
+        if (currentUser is null)
+        {
+            Navigation.NavigateTo("/Account/Login");
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        allBookings = await db.Bookings
+            .AsNoTracking()
+            .Include(x => x.Business)
+            .Include(x => x.Service)
+            .Include(x => x.StaffMember)
+            .Where(x => x.CustomerUserId == currentUser.Id)
+            .OrderByDescending(x => x.StartTime)
+            .ToListAsync();
+
+        themeBusiness = allBookings
+            .OrderByDescending(x => x.StartTime)
+            .Select(x => x.Business)
+            .FirstOrDefault();
+
+        themeBusiness ??= await db.Businesses
+            .AsNoTracking()
+            .Where(x => x.IsActive && x.AllowOnlineBookings)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync();
+
+        upcomingBookings = allBookings
+            .Where(x => x.StartTime >= DateTime.Now)
+            .OrderBy(x => x.StartTime)
+            .ToList();
+
+        previousBookings = allBookings
+            .Where(x => x.StartTime < DateTime.Now)
+            .OrderByDescending(x => x.StartTime)
+            .Take(12)
+            .ToList();
+
+        confirmedCount = allBookings.Count(x => x.Status == "Confirmed");
+        pendingCount = allBookings.Count(x => x.Status == "Pending");
+        cancelledCount = allBookings.Count(x => x.Status == "Cancelled");
+
+        isLoading = false;
+    }
+
+    private async Task CancelBookingAsync(int bookingId)
+    {
+        if (currentUser is null || cancellingBookingIds.Contains(bookingId))
+            return;
+
+        errorMessage = null;
+        successMessage = null;
+        cancellingBookingIds.Add(bookingId);
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        var booking = await db.Bookings
+            .Include(x => x.Business)
+            .Include(x => x.Service)
+            .Include(x => x.StaffMember)
+            .FirstOrDefaultAsync(x =>
+                x.Id == bookingId &&
+                x.CustomerUserId == currentUser.Id);
+
+        if (booking is null)
+        {
+            errorMessage = "Bokningen kunde inte hittas.";
+            cancellingBookingIds.Remove(bookingId);
+            return;
+        }
+
+        if (!CanCancel(booking))
+        {
+            errorMessage = "Den här bokningen kan inte avbokas.";
+            cancellingBookingIds.Remove(bookingId);
+            return;
+        }
+
+        booking.Status = "Cancelled";
+        booking.CancellationReason = "Avbokad av kunden";
+        booking.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+
+        var emailFailed = false;
+
+        try
+        {
+            await BookingEmailSender.SendBookingCancelledToCustomerAsync(booking);
+            await BookingEmailSender.SendBookingCancelledToBusinessAsync(booking);
+        }
+        catch (Exception ex)
+        {
+            emailFailed = true;
+
+            Logger.LogError(
+                ex,
+                "Failed to send cancellation email for booking {BookingId}",
+                booking.Id);
+        }
+
+        cancellingBookingIds.Remove(bookingId);
+
+        await LoadBookingsAsync();
+
+        successMessage = emailFailed
+            ? "Bokningen avbokades, men e-postnotisen kunde inte skickas just nu."
+            : "Bokningen har avbokats och e-postnotiser har skickats.";
+    }
+
+    private static bool CanCancel(Booking booking)
+    {
+        return booking.Status != "Cancelled" &&
+               booking.StartTime > DateTime.Now;
+    }
+
+    private string GetCustomerPageStyle()
+    {
+        if (themeBusiness is null)
+            return "";
+
+        return $"background:{themeBusiness.PageBackgroundColor}; color:{themeBusiness.BodyTextColor};";
+    }
+
+    private string GetCustomerHeroStyle()
+    {
+        if (themeBusiness is null)
+            return "";
+
+        if (string.IsNullOrWhiteSpace(themeBusiness.CoverImageUrl))
+            return $"background:linear-gradient(135deg,{themeBusiness.PrimaryColor},{themeBusiness.SecondaryColor}); color:{themeBusiness.HeroTextColor};";
+
+        return $"background:linear-gradient({themeBusiness.HeroOverlayColor},{themeBusiness.HeroOverlayColor}), url('{themeBusiness.CoverImageUrl}') center/cover; color:{themeBusiness.HeroTextColor};";
+    }
+
+    private string GetCustomerButtonStyle()
+    {
+        if (themeBusiness is null)
+            return "";
+
+        return $"background:{themeBusiness.ButtonBackgroundColor}; color:{themeBusiness.ButtonTextColor};";
+    }
+
+    private string GetCustomerCardStyle(Booking booking)
+    {
+        return $"background:{booking.Business.BookingPanelBackgroundColor}; color:{booking.Business.BodyTextColor};";
+    }
+
+    private static string GetPriceStyle(Booking booking)
+    {
+        return $"color:{booking.Business.PriceTextColor} !important;";
+    }
+
+    private string DisplayCustomerName()
+    {
+        if (currentUser is null)
+            return "Kund";
+
+        var name = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
+
+        return string.IsNullOrWhiteSpace(name)
+            ? currentUser.Email ?? "Kund"
+            : name;
+    }
+
+    private static string DisplayOrFallback(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    private static string GetStatusLabel(string? status)
+    {
+        return status switch
+        {
+            "Pending" => "Väntande",
+            "Confirmed" => "Bekräftad",
+            "Cancelled" => "Avbokad",
+            _ => status ?? "Okänd"
+        };
+    }
+
+    private static string GetStatusClass(string? status)
+    {
+        return status switch
+        {
+            "Pending" => "pending",
+            "Confirmed" => "confirmed",
+            "Cancelled" => "cancelled",
+            _ => "default"
+        };
+    }
+}

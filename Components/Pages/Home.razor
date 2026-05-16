@@ -3,10 +3,16 @@
 
 @using EasySystems.Bookings.Data
 @using EasySystems.Bookings.Data.Entities
+@using EasySystems.Bookings.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @using System.Globalization
 
 @inject ApplicationDbContext Db
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject IBookingEmailSender BookingEmailSender
 
 <PageTitle>@pageTitle</PageTitle>
 
@@ -59,6 +65,19 @@ else
                 <div class="public-booking-hero-actions">
                     <a href="#booking" style="@GetButtonStyle()">Boka tid</a>
                     <a href="#hours" class="public-booking-light-btn">Öppettider</a>
+
+                    @if (currentUser is not null)
+                    {
+                        <a href="/Account/Bookings" class="public-booking-light-btn">
+                            Mina bokningar
+                        </a>
+                    }
+                    else
+                    {
+                        <a href="/Account/Login" class="public-booking-light-btn">
+                            Logga in
+                        </a>
+                    }
                 </div>
             </div>
         </section>
@@ -91,6 +110,19 @@ else
                     <div class="public-section-header">
                         <p>Boka tid</p>
                         <h2>Välj tjänst, personal och tid</h2>
+
+                        @if (currentUser is not null)
+                        {
+                            <span class="public-account-badge">
+                                Inloggad som @DisplayUserName()
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="public-account-badge">
+                                Du kan boka utan konto
+                            </span>
+                        }
                     </div>
 
                     @if (!services.Any())
@@ -132,6 +164,7 @@ else
                                                  @bind-Value="booking.ServiceId"
                                                  @bind-Value:after="OnBookingSelectionChanged">
                                         <option value="0">Välj tjänst</option>
+
                                         @foreach (var service in services)
                                         {
                                             <option value="@service.Id">
@@ -147,6 +180,7 @@ else
                                                  @bind-Value="booking.StaffMemberId"
                                                  @bind-Value:after="OnBookingSelectionChanged">
                                         <option value="0">Välj personal</option>
+
                                         @foreach (var staff in staffMembers)
                                         {
                                             <option value="@staff.Id">
@@ -213,7 +247,9 @@ else
 
                             <div class="public-field">
                                 <label>Meddelande</label>
-                                <InputTextArea class="public-input public-textarea" rows="4" @bind-Value="booking.Notes" />
+                                <InputTextArea class="public-input public-textarea"
+                                               rows="4"
+                                               @bind-Value="booking.Notes" />
                             </div>
 
                             @if (!string.IsNullOrWhiteSpace(errorMessage))
@@ -226,7 +262,10 @@ else
                                 <div class="public-alert success">@successMessage</div>
                             }
 
-                            <button class="public-submit-btn" style="@GetButtonStyle()" type="submit" disabled="@isSubmitting">
+                            <button class="public-submit-btn"
+                                    style="@GetButtonStyle()"
+                                    type="submit"
+                                    disabled="@isSubmitting">
                                 @(isSubmitting ? "Skickar..." : "Skicka bokningsförfrågan")
                             </button>
                         </EditForm>
@@ -264,6 +303,7 @@ else
                                     <article class="public-service-item" style="@GetServiceCardStyle()">
                                         <div>
                                             <strong>@service.Name</strong>
+
                                             @if (!string.IsNullOrWhiteSpace(service.Description))
                                             {
                                                 <p>@service.Description</p>
@@ -325,6 +365,7 @@ else
     private string pageTitle = "EasyBookings";
 
     private Business? business;
+    private ApplicationUser? currentUser;
 
     private List<Service> services = [];
     private List<StaffMember> staffMembers = [];
@@ -332,7 +373,10 @@ else
     private List<TimeSpan> availableTimes = [];
     private List<PublicDayHoursModel> weeklyHours = [];
 
-    private Booking booking = new() { Status = "Pending" };
+    private Booking booking = new()
+        {
+            Status = "Pending"
+        };
 
     private DateTime bookingDate = DateTime.Today;
     private TimeSpan bookingTime;
@@ -345,18 +389,13 @@ else
     private bool SelectedDayIsOpen =>
         GetHoursForDate(bookingDate)?.IsOpen == true;
 
-    private string GetPriceTextStyle()
-    {
-        return business is null
-            ? ""
-            : $"color:{business.PriceTextColor} !important;";
-    }
-
     protected override async Task OnInitializedAsync()
     {
         isLoading = true;
         errorMessage = null;
         successMessage = null;
+
+        await LoadCurrentUserAsync();
 
         business = await Db.Businesses
             .FirstOrDefaultAsync(b => b.IsActive && b.AllowOnlineBookings);
@@ -369,6 +408,7 @@ else
         }
 
         pageTitle = business.Name;
+
         LoadWeeklyHours();
 
         services = await Db.Services
@@ -383,21 +423,58 @@ else
             .ThenBy(s => s.FullName)
             .ToListAsync();
 
-        booking = new Booking
-            {
-                BusinessId = business.Id,
-                Status = "Pending"
-            };
+        ResetBookingForm();
+        PrefillCustomerFromAccount();
 
         await LoadAvailableTimesAsync();
 
         isLoading = false;
     }
 
+    private async Task LoadCurrentUserAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var principal = authState.User;
+
+        if (principal.Identity?.IsAuthenticated == true)
+        {
+            currentUser = await UserManager.GetUserAsync(principal);
+        }
+    }
+
+    private void ResetBookingForm()
+    {
+        if (business is null)
+            return;
+
+        booking = new Booking
+            {
+                BusinessId = business.Id,
+                Status = "Pending"
+            };
+    }
+
+    private void PrefillCustomerFromAccount()
+    {
+        if (currentUser is null)
+            return;
+
+        var fullName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
+
+        booking.CustomerUserId = currentUser.Id;
+        booking.CustomerName = string.IsNullOrWhiteSpace(fullName)
+            ? currentUser.Email ?? ""
+            : fullName;
+
+        booking.CustomerEmail = currentUser.Email ?? "";
+        booking.CustomerPhone = currentUser.PhoneNumber ?? "";
+    }
+
     private async Task OnBookingSelectionChanged()
     {
         errorMessage = null;
         successMessage = null;
+
         await LoadAvailableTimesAsync();
     }
 
@@ -480,6 +557,10 @@ else
         booking.CustomerName = booking.CustomerName.Trim();
         booking.CustomerEmail = booking.CustomerEmail?.Trim();
         booking.CustomerPhone = booking.CustomerPhone?.Trim();
+        booking.Notes = booking.Notes?.Trim();
+
+        if (currentUser is not null)
+            booking.CustomerUserId = currentUser.Id;
 
         if (string.IsNullOrWhiteSpace(booking.CustomerName))
         {
@@ -522,7 +603,10 @@ else
         booking.StartTime = bookingDate.Date.Add(bookingTime);
         booking.EndTime = booking.StartTime.AddMinutes(service.DurationMinutes);
         booking.Status = "Pending";
+        booking.IsPaid = false;
+        booking.PaidAmount = 0;
         booking.CreatedAt = DateTime.UtcNow;
+        booking.CustomerNotified = false;
 
         if (booking.StartTime <= DateTime.Now)
         {
@@ -560,20 +644,55 @@ else
 
         isSubmitting = true;
 
+        booking.Business = business;
+        booking.Service = service;
+        booking.StaffMember = staff;
+
         Db.Bookings.Add(booking);
         await Db.SaveChangesAsync();
 
-        successMessage = "Din bokningsförfrågan har skickats.";
+        await SendBookingEmailsAsync(booking.Id);
 
-        booking = new Booking
-            {
-                BusinessId = business.Id,
-                Status = "Pending"
-            };
+        successMessage = "Din bokningsförfrågan har skickats. Du får ett mail med detaljerna.";
+
+        ResetBookingForm();
+        PrefillCustomerFromAccount();
 
         await LoadAvailableTimesAsync();
 
         isSubmitting = false;
+    }
+
+    private async Task SendBookingEmailsAsync(int bookingId)
+    {
+        var savedBooking = await Db.Bookings
+            .AsNoTracking()
+            .Include(b => b.Business)
+            .Include(b => b.Service)
+            .Include(b => b.StaffMember)
+            .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+        if (savedBooking is null)
+            return;
+
+        try
+        {
+            await BookingEmailSender.SendBookingCreatedToCustomerAsync(savedBooking);
+            await BookingEmailSender.SendBookingCreatedToBusinessAsync(savedBooking);
+
+            var trackedBooking = await Db.Bookings.FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (trackedBooking is not null)
+            {
+                trackedBooking.CustomerNotified = true;
+                trackedBooking.UpdatedAt = DateTime.UtcNow;
+                await Db.SaveChangesAsync();
+            }
+        }
+        catch
+        {
+            successMessage = "Bokningen skapades, men mailet kunde inte skickas just nu.";
+        }
     }
 
     private void LoadWeeklyHours()
@@ -618,7 +737,19 @@ else
         return $"{hours.Open:hh\\:mm} - {hours.Close:hh\\:mm}";
     }
 
-    private string DisplayOrFallback(string? value, string fallback)
+    private string DisplayUserName()
+    {
+        if (currentUser is null)
+            return "";
+
+        var fullName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
+
+        return string.IsNullOrWhiteSpace(fullName)
+            ? currentUser.Email ?? "konto"
+            : fullName;
+    }
+
+    private static string DisplayOrFallback(string? value, string fallback)
     {
         return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
@@ -648,7 +779,7 @@ else
 
         return name[0].ToString().ToUpper();
     }
-    
+
     private string GetPageStyle()
     {
         return business is null
@@ -681,6 +812,13 @@ else
             : $"background:{business.ServiceCardBackgroundColor}; color:{business.BodyTextColor};";
     }
 
+    private string GetPriceTextStyle()
+    {
+        return business is null
+            ? ""
+            : $"color:{business.PriceTextColor} !important;";
+    }
+
     private sealed class PublicDayHoursModel
     {
         public PublicDayHoursModel(string label, DayOfWeek day, bool isOpen, TimeSpan open, TimeSpan close)
@@ -693,9 +831,13 @@ else
         }
 
         public string Label { get; }
+
         public DayOfWeek Day { get; }
+
         public bool IsOpen { get; }
+
         public TimeSpan Open { get; }
+
         public TimeSpan Close { get; }
     }
 }
