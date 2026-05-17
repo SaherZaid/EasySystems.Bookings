@@ -216,6 +216,10 @@ public class Business
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    public string? PrivacyPolicyHtml { get; set; }
+
+    public string? TermsAndConditionsHtml { get; set; }
+
     public ICollection<BusinessUser> Users { get; set; } = [];
 
     public ICollection<Service> Services { get; set; } = [];

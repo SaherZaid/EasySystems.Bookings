@@ -1,0 +1,96 @@
+﻿@page "/terms"
+@rendermode InteractiveServer
+
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components
+
+@inject ApplicationDbContext Db
+
+<PageTitle>Terms & Conditions</PageTitle>
+
+@if (business is null)
+{
+    <div class="legal-public-page">
+        <div class="legal-public-card">
+            <h2>Inga villkor hittades</h2>
+        </div>
+    </div>
+}
+else
+{
+    <div class="legal-public-page"
+         style="@GetPageStyle()">
+
+        <section class="legal-public-hero"
+                 style="@GetHeroStyle()">
+
+            <div>
+                <p>Legal</p>
+                <h1>Terms & Conditions</h1>
+            </div>
+
+        </section>
+
+        <main class="legal-public-shell">
+
+            <article class="legal-public-card">
+
+                @if (!string.IsNullOrWhiteSpace(business.TermsAndConditionsHtml))
+                {
+                    @((MarkupString)business.TermsAndConditionsHtml)
+                }
+                else
+                {
+                    <p>
+                        Inga villkor har publicerats ännu.
+                    </p>
+                }
+
+            </article>
+
+        </main>
+
+    </div>
+}
+
+@code {
+
+    private Business? business;
+
+    protected override async Task OnInitializedAsync()
+    {
+        business = await Db.Businesses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x =>
+                x.IsActive);
+    }
+
+    private string GetPageStyle()
+    {
+        if (business is null)
+            return "";
+
+        return
+            $"background:{business.PageBackgroundColor};" +
+            $"color:{business.BodyTextColor};";
+    }
+
+    private string GetHeroStyle()
+    {
+        if (business is null)
+            return "";
+
+        if (string.IsNullOrWhiteSpace(business.CoverImageUrl))
+        {
+            return
+                $"background:linear-gradient(135deg,{business.PrimaryColor},{business.SecondaryColor});" +
+                $"color:{business.HeroTextColor};";
+        }
+
+        return
+            $"background:linear-gradient({business.HeroOverlayColor},{business.HeroOverlayColor}),url('{business.CoverImageUrl}') center/cover;" +
+            $"color:{business.HeroTextColor};";
+    }
+}

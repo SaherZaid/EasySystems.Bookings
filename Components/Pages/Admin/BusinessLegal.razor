@@ -1,0 +1,103 @@
+﻿@page "/admin/businesses/{BusinessId:int}/legal"
+@rendermode InteractiveServer
+
+@using EasySystems.Bookings.Components.Admin
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.EntityFrameworkCore
+
+@inherits AdminBusinessPageBase
+
+@inject ApplicationDbContext Db
+
+<PageTitle>Juridiska sidor | EasySystems</PageTitle>
+
+<AdminNavbar BusinessId="BusinessId" />
+
+@if (business is null)
+{
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-loading-card">
+                Laddar...
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="admin-page">
+        <div class="admin-shell">
+
+            <section class="admin-hero">
+                <div>
+                    <p class="admin-eyebrow">Juridik</p>
+                    <h1>Policy & villkor</h1>
+                    <p>Hantera sekretesspolicy och användarvillkor för kunder.</p>
+                </div>
+            </section>
+
+            <EditForm Model="business" OnValidSubmit="SaveAsync">
+
+                <div class="business-form-card">
+
+                    <h2>Privacy Policy</h2>
+
+                    <InputTextArea class="settings-input settings-textarea legal-textarea"
+                                   @bind-Value="business.PrivacyPolicyHtml" />
+
+                    <h2>Terms & Conditions</h2>
+
+                    <InputTextArea class="settings-input settings-textarea legal-textarea"
+                                   @bind-Value="business.TermsAndConditionsHtml" />
+
+                    @if (!string.IsNullOrWhiteSpace(successMessage))
+                    {
+                        <div class="settings-alert success">
+                            @successMessage
+                        </div>
+                    }
+
+                    <div class="settings-actions">
+                        <button class="admin-primary-btn" type="submit">
+                            Spara
+                        </button>
+                    </div>
+
+                </div>
+
+            </EditForm>
+
+        </div>
+    </div>
+}
+
+@code {
+
+    private Business? business;
+
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        business = await Db.Businesses
+            .FirstOrDefaultAsync(x => x.Id == BusinessId);
+
+        if (business is null)
+        {
+            Navigation.NavigateTo("/admin/businesses");
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (business is null)
+            return;
+
+        await Db.SaveChangesAsync();
+
+        successMessage = "Sidorna har sparats.";
+    }
+}
