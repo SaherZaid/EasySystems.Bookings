@@ -214,6 +214,21 @@ public class Business
     [MaxLength(30)]
     public string CustomerPortalCardColor { get; set; } = "#FFFFFF";
 
+    [MaxLength(30)]
+    public string NavbarBorderColor { get; set; } = "#E5E7EB";
+
+    [MaxLength(30)]
+    public string NavbarLinkHoverColor { get; set; } = "#C9A46A";
+
+    [MaxLength(30)]
+    public string NavbarButtonBackgroundColor { get; set; } = "#151515";
+
+    [MaxLength(30)]
+    public string NavbarButtonTextColor { get; set; } = "#FFFFFF";
+
+    [MaxLength(30)]
+    public string NavbarMobileBackgroundColor { get; set; } = "#FFFFFF";
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public string? PrivacyPolicyHtml { get; set; }

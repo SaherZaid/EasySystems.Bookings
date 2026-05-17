@@ -267,7 +267,7 @@ else
 
                             <ColorInput Label="Sidfot bakgrund" @bind-Value="business.FooterBackgroundColor" />
                             <ColorInput Label="Sidfot text" @bind-Value="business.FooterTextColor" />
-
+                            
                             <ColorInput Label="Hero-text" @bind-Value="business.HeroTextColor" />
                             <ColorInput Label="Tjänstekort" @bind-Value="business.ServiceCardBackgroundColor" />
                             <ColorInput Label="Personalkort" @bind-Value="business.StaffCardBackgroundColor" />
@@ -277,6 +277,12 @@ else
                             <ColorInput Label="Success" @bind-Value="business.SuccessColor" />
                             <ColorInput Label="Varning" @bind-Value="business.WarningColor" />
                             <ColorInput Label="Fara" @bind-Value="business.DangerColor" />
+
+                            <ColorInput Label="Navbar kant" @bind-Value="business.NavbarBorderColor" />
+                            <ColorInput Label="Navbar hover" @bind-Value="business.NavbarLinkHoverColor" />
+                            <ColorInput Label="Navbar knapp" @bind-Value="business.NavbarButtonBackgroundColor" />
+                            <ColorInput Label="Navbar knapptext" @bind-Value="business.NavbarButtonTextColor" />
+                            <ColorInput Label="Navbar mobil bakgrund" @bind-Value="business.NavbarMobileBackgroundColor" />
                         </div>
 
                         <h2>Kundsidans formulär</h2>
@@ -746,6 +752,12 @@ else
         business.TimeSlotActiveTextColor = CssValue(business.TimeSlotActiveTextColor, "#FFFFFF");
 
         business.CustomerPortalCardColor = CssValue(business.CustomerPortalCardColor, "#FFFFFF");
+
+        business.NavbarBorderColor = CssValue(business.NavbarBorderColor, "#E5E7EB");
+        business.NavbarLinkHoverColor = CssValue(business.NavbarLinkHoverColor, "#C9A46A");
+        business.NavbarButtonBackgroundColor = CssValue(business.NavbarButtonBackgroundColor, "#151515");
+        business.NavbarButtonTextColor = CssValue(business.NavbarButtonTextColor, "#FFFFFF");
+        business.NavbarMobileBackgroundColor = CssValue(business.NavbarMobileBackgroundColor, "#FFFFFF");
     }
 
     private static string CssValue(string? value, string fallback) =>

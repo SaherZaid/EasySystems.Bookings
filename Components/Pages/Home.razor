@@ -9,13 +9,15 @@
 @using Microsoft.EntityFrameworkCore
 @using System.Globalization
 
-@inject ApplicationDbContext Db
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
 @inject AuthenticationStateProvider AuthStateProvider
 @inject UserManager<ApplicationUser> UserManager
 @inject IBookingEmailSender BookingEmailSender
 @inject ILoggerFactory LoggerFactory
 
 <PageTitle>@pageTitle</PageTitle>
+
+<PublicNavbar />
 
 @if (isLoading)
 {
@@ -387,6 +389,8 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        await using var Db = await DbFactory.CreateDbContextAsync();
+
         isLoading = true;
         errorMessage = null;
         successMessage = null;
@@ -476,6 +480,8 @@ else
 
     private async Task LoadAvailableTimesAsync()
     {
+        await using var Db = await DbFactory.CreateDbContextAsync();
+
         availableTimes.Clear();
 
         if (business is null)
@@ -535,6 +541,8 @@ else
 
     private async Task CreateBookingAsync()
     {
+        await using var Db = await DbFactory.CreateDbContextAsync();
+
         errorMessage = null;
         successMessage = null;
 
@@ -663,6 +671,8 @@ else
 
     private async Task<bool> SendBookingEmailsAsync(int bookingId)
     {
+        await using var Db = await DbFactory.CreateDbContextAsync();
+
         var savedBooking = await Db.Bookings
             .AsNoTracking()
             .Include(b => b.Business)

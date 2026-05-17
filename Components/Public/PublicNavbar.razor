@@ -1,0 +1,217 @@
+﻿@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Access
+@using EasySystems.Bookings.Data.Entities
+@using EasySystems.Bookings.Data.Identity
+
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.EntityFrameworkCore
+
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject BusinessAccessService BusinessAccessService
+@inject NavigationManager Navigation
+
+<nav class="public-navbar" style="@GetNavbarStyle()">
+    <div class="public-navbar-shell">
+
+        <a class="public-navbar-brand" href="/" @onclick="CloseMenu">
+            @if (!string.IsNullOrWhiteSpace(business?.LogoUrl))
+            {
+                <img src="@business.LogoUrl" alt="@business.Name" />
+            }
+            else
+            {
+                <span class="public-navbar-logo">@GetInitials()</span>
+            }
+
+            <span>
+                <strong>@DisplayOrFallback(business?.Name, "EasyBookings")</strong>
+
+                @if (!string.IsNullOrWhiteSpace(business?.BusinessType))
+                {
+                    <small>@business.BusinessType</small>
+                }
+                else
+                {
+                    <small>Bokning online</small>
+                }
+            </span>
+        </a>
+
+        <button type="button"
+                class="public-navbar-toggle"
+                @onclick="ToggleMenu"
+                aria-label="Öppna meny">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
+        <div class="public-navbar-links @(isOpen ? "open" : "")">
+            <NavLink href="/" Match="NavLinkMatch.All" @onclick="CloseMenu">
+                Hem
+            </NavLink>
+
+            <NavLink href="/#hours" @onclick="CloseMenu">
+                Öppettider
+            </NavLink>
+
+            <NavLink href="/#booking" @onclick="CloseMenu">
+                Boka ny tid
+            </NavLink>
+
+
+            <NavLink href="/privacy" @onclick="CloseMenu">
+                Integritet
+            </NavLink>
+
+            <NavLink href="/terms" @onclick="CloseMenu">
+                Villkor
+            </NavLink>
+
+            @if (isAuthenticated)
+            {
+                <NavLink href="/Account/Manage" @onclick="CloseMenu">
+                    Profil
+                </NavLink>
+
+                <NavLink href="/Account/Bookings" @onclick="CloseMenu">
+                    Mina bokningar
+                </NavLink>
+
+                @if (canOpenAdmin)
+                {
+                    <NavLink href="@adminUrl" @onclick="CloseMenu">
+                        Admin
+                    </NavLink>
+                }
+
+                <form action="/Account/Logout"
+                      method="post"
+                      class="public-navbar-logout">
+
+                    <AntiforgeryToken />
+
+                    <input type="hidden"
+                           name="returnUrl"
+                           value="@GetLogoutReturnUrl()" />
+
+                    <button type="submit">
+                        Logga ut
+                    </button>
+                </form>
+            }
+            else
+            {
+                <NavLink href="/Account/Login" @onclick="CloseMenu">
+                    Logga in
+                </NavLink>
+
+                <NavLink href="/Account/Register" @onclick="CloseMenu">
+                    Skapa konto
+                </NavLink>
+            }
+        </div>
+    </div>
+</nav>
+
+@code {
+    private Business? business;
+    private bool isOpen;
+    private bool isAuthenticated;
+    private bool canOpenAdmin;
+    private string adminUrl = "/admin/businesses";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        business = await db.Businesses
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .OrderByDescending(x => x.AllowOnlineBookings)
+            .ThenByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync();
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var principal = authState.User;
+
+        if (principal.Identity?.IsAuthenticated != true)
+            return;
+
+        isAuthenticated = true;
+
+        if (principal.IsInRole(AppRoles.PlatformSuperAdmin))
+        {
+            canOpenAdmin = true;
+            adminUrl = "/admin/businesses";
+            return;
+        }
+
+        if (business is not null)
+        {
+            var permissions = await BusinessAccessService.GetPermissionsAsync(principal, business.Id);
+
+            if (permissions.HasAccess)
+            {
+                canOpenAdmin = true;
+                adminUrl = $"/admin/businesses/{business.Id}/overview";
+            }
+        }
+    }
+
+    private void ToggleMenu()
+    {
+        isOpen = !isOpen;
+    }
+
+    private void CloseMenu()
+    {
+        isOpen = false;
+    }
+
+    private string GetLogoutReturnUrl()
+    {
+        return "";
+    }
+
+    private string GetNavbarStyle()
+    {
+        if (business is null)
+            return "";
+
+        return string.Join(" ",
+            $"--public-navbar-bg:{CssValue(business.NavbarBackgroundColor, "#FFFFFF")};",
+            $"--public-navbar-text:{CssValue(business.NavbarTextColor, "#151515")};",
+            $"--public-navbar-border:{CssValue(business.NavbarBorderColor, "#E5E7EB")};",
+            $"--public-navbar-hover:{CssValue(business.NavbarLinkHoverColor, business.SecondaryColor)};",
+            $"--public-navbar-mobile-bg:{CssValue(business.NavbarMobileBackgroundColor, business.NavbarBackgroundColor)};",
+            $"--public-navbar-button-bg:{CssValue(business.NavbarButtonBackgroundColor, business.ButtonBackgroundColor)};",
+            $"--public-navbar-button-text:{CssValue(business.NavbarButtonTextColor, business.ButtonTextColor)};"
+        );
+    }
+
+    private string GetInitials()
+    {
+        if (business is null || string.IsNullOrWhiteSpace(business.Name))
+            return "EB";
+
+        var parts = business.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+
+        return business.Name[0].ToString().ToUpper();
+    }
+
+    private static string DisplayOrFallback(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    private static string CssValue(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+}
