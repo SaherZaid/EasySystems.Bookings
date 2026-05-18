@@ -1,0 +1,215 @@
+﻿@using EasySystems.Bookings.Data.Entities
+
+@if (Business is not null)
+{
+    <footer class="business-footer" style="@GetFooterStyle()">
+        <div class="business-footer-shell">
+
+            <section class="business-footer-brand-card">
+                <div class="business-footer-brand-row">
+                    @if (Business.ShowFooterLogo)
+                    {
+                        @if (!string.IsNullOrWhiteSpace(Business.LogoUrl))
+                        {
+                            <img class="business-footer-logo" src="@Business.LogoUrl" alt="@Business.Name" />
+                        }
+                        else
+                        {
+                            <div class="business-footer-logo-fallback">
+                                @GetInitials()
+                            </div>
+                        }
+                    }
+
+                    <div>
+                        <p class="business-footer-kicker" style="@GetMutedStyle()">
+                            @Display(Business.BusinessType, "Onlinebokning")
+                        </p>
+
+                        <h2 style="@GetHeadingStyle()">
+                            @Display(Business.FooterTitle, Business.Name)
+                        </h2>
+
+                        <p style="@GetMutedStyle()">
+                            @Display(Business.FooterDescription, Business.Tagline)
+                        </p>
+                    </div>
+                </div>
+
+                <div class="business-footer-contact">
+                    @if (!string.IsNullOrWhiteSpace(Business.Phone))
+                    {
+                        <a href="tel:@Business.Phone" style="@GetLinkStyle()">@Business.Phone</a>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(Business.Email))
+                    {
+                        <a href="mailto:@Business.Email" style="@GetLinkStyle()">@Business.Email</a>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(Business.Address) || !string.IsNullOrWhiteSpace(Business.City))
+                    {
+                        <span style="@GetMutedStyle()">
+                            @DisplayAddress()
+                        </span>
+                    }
+                </div>
+            </section>
+
+            <section class="business-footer-columns">
+
+                <div class="business-footer-column">
+                    <h3 style="@GetHeadingStyle()">Bokning</h3>
+
+                    <a href="/" style="@GetLinkStyle()">Hem</a>
+                    <a href="/#booking" style="@GetLinkStyle()">Boka ny tid</a>
+                    <a href="/#services" style="@GetLinkStyle()">Tjänster</a>
+                    <a href="/#hours" style="@GetLinkStyle()">Öppettider</a>
+                </div>
+
+                <div class="business-footer-column">
+                    <h3 style="@GetHeadingStyle()">Konto</h3>
+
+                    <a href="/Account/Profile" style="@GetLinkStyle()">Profil</a>
+                    <a href="/Account/Bookings" style="@GetLinkStyle()">Mina bokningar</a>
+                    <a href="/Account/Login" style="@GetLinkStyle()">Logga in</a>
+                </div>
+
+                @if (Business.ShowFooterLegalLinks)
+                {
+                    <div class="business-footer-column">
+                        <h3 style="@GetHeadingStyle()">Juridik</h3>
+
+                        <a href="/privacy" style="@GetLinkStyle()">Integritetspolicy</a>
+                        <a href="/terms" style="@GetLinkStyle()">Villkor</a>
+                    </div>
+                }
+
+                @if (Business.ShowFooterSocialLinks)
+                {
+                    <div class="business-footer-column">
+                        <h3 style="@GetHeadingStyle()">Socialt</h3>
+
+                        @if (!string.IsNullOrWhiteSpace(Business.WebsiteUrl))
+                        {
+                            <a href="@Business.WebsiteUrl" target="_blank" rel="noopener noreferrer" style="@GetLinkStyle()">Webbplats</a>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(Business.InstagramUrl))
+                        {
+                            <a href="@Business.InstagramUrl" target="_blank" rel="noopener noreferrer" style="@GetLinkStyle()">Instagram</a>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(Business.FacebookUrl))
+                        {
+                            <a href="@Business.FacebookUrl" target="_blank" rel="noopener noreferrer" style="@GetLinkStyle()">Facebook</a>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(Business.TikTokUrl))
+                        {
+                            <a href="@Business.TikTokUrl" target="_blank" rel="noopener noreferrer" style="@GetLinkStyle()">TikTok</a>
+                        }
+                    </div>
+                }
+
+            </section>
+
+            <section class="business-footer-bottom">
+                <span style="@GetMutedStyle()">
+                    @Display(Business.FooterCopyrightText, $"© {DateTime.Now.Year} {Business.Name}. Alla rättigheter förbehållna.")
+                </span>
+
+                <span style="@GetMutedStyle()">
+                    Powered by EasySystems
+                </span>
+            </section>
+
+        </div>
+    </footer>
+}
+
+@code {
+    [Parameter]
+    public Business? Business { get; set; }
+
+    private string Display(string? value, string? fallback)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? fallback ?? ""
+            : value;
+    }
+
+    private string DisplayAddress()
+    {
+        if (Business is null)
+            return "";
+
+        if (!string.IsNullOrWhiteSpace(Business.Address) &&
+            !string.IsNullOrWhiteSpace(Business.City))
+            return $"{Business.Address}, {Business.City}";
+
+        return Display(Business.Address, Business.City);
+    }
+
+    private string GetInitials()
+    {
+        if (Business is null || string.IsNullOrWhiteSpace(Business.Name))
+            return "EB";
+
+        var parts = Business.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+
+        return Business.Name[0].ToString().ToUpper();
+    }
+
+    private string GetFooterStyle()
+    {
+        if (Business is null)
+            return "";
+
+        return string.Join(" ",
+            $"--footer-bg:{CssValue(Business.FooterBackgroundColor, "#151515")};",
+            $"--footer-text:{CssValue(Business.FooterTextColor, "#FFFFFF")};",
+            $"--footer-heading:{CssValue(Business.FooterHeadingColor, Business.FooterTextColor)};",
+            $"--footer-muted:{CssValue(Business.FooterMutedTextColor, "#C7C7C7")};",
+            $"--footer-link:{CssValue(Business.FooterLinkColor, Business.FooterTextColor)};",
+            $"--footer-border:{CssValue(Business.FooterBorderColor, "rgba(255,255,255,.14)")};",
+            $"background:{CssValue(Business.FooterBackgroundColor, "#151515")};",
+            $"color:{CssValue(Business.FooterTextColor, "#FFFFFF")};",
+            $"border-top:1px solid {CssValue(Business.FooterBorderColor, "rgba(255,255,255,.14)")};"
+        );
+    }
+
+    private string GetHeadingStyle()
+    {
+        if (Business is null)
+            return "";
+
+        return $"color:{CssValue(Business.FooterHeadingColor, Business.FooterTextColor)};";
+    }
+
+    private string GetMutedStyle()
+    {
+        if (Business is null)
+            return "";
+
+        return $"color:{CssValue(Business.FooterMutedTextColor, "#C7C7C7")};";
+    }
+
+    private string GetLinkStyle()
+    {
+        if (Business is null)
+            return "";
+
+        return $"color:{CssValue(Business.FooterLinkColor, Business.FooterTextColor)};";
+    }
+
+    private static string CssValue(string? value, string? fallback)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? fallback ?? ""
+            : value;
+    }
+}

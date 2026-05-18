@@ -182,6 +182,36 @@ public class Business
     [MaxLength(30)]
     public string FooterTextColor { get; set; } = "#FFFFFF";
 
+    [MaxLength(200)]
+    public string? FooterTitle { get; set; }
+
+    [MaxLength(500)]
+    public string? FooterDescription { get; set; }
+
+    [MaxLength(100)]
+    public string? FooterCopyrightText { get; set; }
+
+    [MaxLength(30)]
+    public string FooterBorderColor { get; set; } = "#2A2A2A";
+
+    [MaxLength(30)]
+    public string FooterLinkColor { get; set; } = "#FFFFFF";
+
+    [MaxLength(30)]
+    public string FooterLinkHoverColor { get; set; } = "#C9A46A";
+
+    [MaxLength(30)]
+    public string FooterHeadingColor { get; set; } = "#FFFFFF";
+
+    [MaxLength(30)]
+    public string FooterMutedTextColor { get; set; } = "#A1A1AA";
+
+    public bool ShowFooterLogo { get; set; } = true;
+
+    public bool ShowFooterSocialLinks { get; set; } = true;
+
+    public bool ShowFooterLegalLinks { get; set; } = true;
+
     [MaxLength(30)]
     public string HeroTextColor { get; set; } = "#FFFFFF";
 

@@ -1,9 +1,43 @@
 ﻿@inherits LayoutComponentBase
 
+@using EasySystems.Bookings.Components.Public
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.EntityFrameworkCore
+@using EasySystems.Bookings.Components.Account.Shared
+
+
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject NavigationManager Navigation
+
 @Body
+
+@if (business is not null && !IsAdminPage)
+{
+    <BusinessFooter Business="business" />
+}
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private Business? business;
+
+    private bool IsAdminPage =>
+        Navigation.Uri.Contains("/admin/", StringComparison.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        business = await db.Businesses
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .OrderByDescending(x => x.AllowOnlineBookings)
+            .ThenByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync();
+    }
+}

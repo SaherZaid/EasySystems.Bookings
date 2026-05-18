@@ -321,6 +321,97 @@ else
                             </label>
                         </div>
 
+                        <h2>Footer design</h2>
+
+                        <small>
+                            Anpassa kundsidans footer, länkar, färger och information.
+                        </small>
+
+                        <div class="settings-color-grid">
+
+                            <ColorInput Label="Footer bakgrund"
+                                        @bind-Value="business.FooterBackgroundColor" />
+
+                            <ColorInput Label="Footer text"
+                                        @bind-Value="business.FooterTextColor" />
+
+                            <ColorInput Label="Footer kant"
+                                        @bind-Value="business.FooterBorderColor" />
+
+                            <ColorInput Label="Footer rubriker"
+                                        @bind-Value="business.FooterHeadingColor" />
+
+                            <ColorInput Label="Footer diskret text"
+                                        @bind-Value="business.FooterMutedTextColor" />
+
+                            <ColorInput Label="Footer länkar"
+                                        @bind-Value="business.FooterLinkColor" />
+
+                            <ColorInput Label="Footer hover"
+                                        @bind-Value="business.FooterLinkHoverColor" />
+
+                        </div>
+
+                        <div class="settings-two-cols">
+
+                            <div>
+                                <label>Footer titel</label>
+
+                                <InputText class="settings-input"
+                                           @bind-Value="business.FooterTitle" />
+                            </div>
+
+                            <div>
+                                <label>Copyright text</label>
+
+                                <InputText class="settings-input"
+                                           @bind-Value="business.FooterCopyrightText" />
+                            </div>
+
+                        </div>
+
+                        <label>Footer beskrivning</label>
+
+                        <InputTextArea class="settings-input settings-textarea"
+                                       @bind-Value="business.FooterDescription" />
+
+                        <div class="settings-switch-grid">
+
+                            <label class="settings-switch">
+
+                                <InputCheckbox @bind-Value="business.ShowFooterLogo" />
+
+                                <span>
+                                    <strong>Visa logo</strong>
+                                    <small>Visar verksamhetens logo i footern.</small>
+                                </span>
+
+                            </label>
+
+                            <label class="settings-switch">
+
+                                <InputCheckbox @bind-Value="business.ShowFooterSocialLinks" />
+
+                                <span>
+                                    <strong>Visa sociala länkar</strong>
+                                    <small>Instagram, Facebook och TikTok visas i footern.</small>
+                                </span>
+
+                            </label>
+
+                            <label class="settings-switch">
+
+                                <InputCheckbox @bind-Value="business.ShowFooterLegalLinks" />
+
+                                <span>
+                                    <strong>Visa juridiska länkar</strong>
+                                    <small>Privacy Policy och Terms visas i footern.</small>
+                                </span>
+
+                            </label>
+
+                        </div>
+
                         <h2>Kundsidans formulär</h2>
                         <small>De här färgerna påverkar bokningssidan, kundens bokningar och alla publika formulär.</small>
 
@@ -451,9 +542,75 @@ else
                                 <p style="@GetBodyTextStyle()">Kundens portal använder samma färger.</p>
                             </div>
 
-                            <div class="preview-footer" style="@GetFooterStyle()">
-                                <strong>@business.Name</strong>
-                                <span>Kontakt · Villkor · Bokningar</span>
+                            <div class="preview-footer"
+                                 style="@GetAdvancedFooterStyle()">
+
+                                <div class="preview-footer-top">
+
+                                    <div class="preview-footer-brand">
+
+                                        @if (business.ShowFooterLogo)
+                                        {
+                                            <div class="preview-footer-logo">
+                                                @GetInitials()
+                                            </div>
+                                        }
+
+                                        <div>
+
+                                            <strong style="@GetFooterHeadingStyle()">
+                                                @DisplayOrFallback(
+                                                         business.FooterTitle,
+                                                         business.Name)
+                                            </strong>
+
+                                            <p style="@GetFooterMutedStyle()">
+                                                @DisplayOrFallback(
+                                                         business.FooterDescription,
+                                                         business.Tagline ?? "Modern onlinebokning för kunder.")
+                                            </p>
+
+                                        </div>
+
+                                    </div>
+
+                                    <div class="preview-footer-links">
+
+                                        <span style="@GetFooterLinkStyle()">
+                                            Home
+                                        </span>
+
+                                        <span style="@GetFooterLinkStyle()">
+                                            Booking
+                                        </span>
+
+                                        @if (business.ShowFooterLegalLinks)
+                                        {
+                                            <span style="@GetFooterLinkStyle()">
+                                                Privacy
+                                            </span>
+
+                                            <span style="@GetFooterLinkStyle()">
+                                                Terms
+                                            </span>
+                                        }
+
+                                    </div>
+
+                                </div>
+
+                                <div class="preview-footer-bottom">
+
+                                    <span style="@GetFooterMutedStyle()">
+
+                                        @DisplayOrFallback(
+                                                 business.FooterCopyrightText,
+                                                 $"© {DateTime.Now.Year} {business.Name}")
+
+                                    </span>
+
+                                </div>
+
                             </div>
                         </div>
 
@@ -748,13 +905,16 @@ else
         business.PageBackgroundColor = CssValue(business.PageBackgroundColor, "#F8F4ED");
         business.SectionBackgroundColor = CssValue(business.SectionBackgroundColor, "#FFFFFF");
         business.CardBackgroundColor = CssValue(business.CardBackgroundColor, "#FFFFFF");
+
         business.HeadingTextColor = CssValue(business.HeadingTextColor, "#151515");
         business.BodyTextColor = CssValue(business.BodyTextColor, "#4B5563");
         business.MutedTextColor = CssValue(business.MutedTextColor, "#7A6F63");
+
         business.ButtonBackgroundColor = CssValue(business.ButtonBackgroundColor, "#151515");
         business.ButtonTextColor = CssValue(business.ButtonTextColor, "#FFFFFF");
         business.SecondaryButtonBackgroundColor = CssValue(business.SecondaryButtonBackgroundColor, "#FFFFFF");
         business.SecondaryButtonTextColor = CssValue(business.SecondaryButtonTextColor, "#151515");
+
         business.NavbarBackgroundColor = CssValue(business.NavbarBackgroundColor, "#FFFFFF");
         business.NavbarTextColor = CssValue(business.NavbarTextColor, "#151515");
         business.NavbarBorderColor = CssValue(business.NavbarBorderColor, "#E5E7EB");
@@ -781,24 +941,42 @@ else
 
         business.FooterBackgroundColor = CssValue(business.FooterBackgroundColor, "#151515");
         business.FooterTextColor = CssValue(business.FooterTextColor, "#FFFFFF");
+        business.FooterBorderColor = CssValue(business.FooterBorderColor, "#2A2A2A");
+        business.FooterHeadingColor = CssValue(business.FooterHeadingColor, "#FFFFFF");
+        business.FooterMutedTextColor = CssValue(business.FooterMutedTextColor, "#A1A1AA");
+        business.FooterLinkColor = CssValue(business.FooterLinkColor, "#FFFFFF");
+        business.FooterLinkHoverColor = CssValue(business.FooterLinkHoverColor, "#C9A46A");
+
+        business.FooterTitle = CssValue(business.FooterTitle, business.Name);
+        business.FooterDescription = CssValue(business.FooterDescription, business.Tagline ?? "Modern onlinebokning för kunder.");
+        business.FooterCopyrightText = CssValue(
+            business.FooterCopyrightText,
+            $"© {DateTime.Now.Year} {business.Name}"
+        );
+
         business.HeroTextColor = CssValue(business.HeroTextColor, "#FFFFFF");
         business.HeroOverlayColor = CssValue(business.HeroOverlayColor, "rgba(0,0,0,.55)");
+
         business.ServiceCardBackgroundColor = CssValue(business.ServiceCardBackgroundColor, "#FFFFFF");
         business.StaffCardBackgroundColor = CssValue(business.StaffCardBackgroundColor, "#FFFFFF");
         business.BookingPanelBackgroundColor = CssValue(business.BookingPanelBackgroundColor, "#FFFFFF");
         business.PriceTextColor = CssValue(business.PriceTextColor, "#151515");
+
         business.SuccessColor = CssValue(business.SuccessColor, "#087443");
         business.WarningColor = CssValue(business.WarningColor, "#B45309");
         business.DangerColor = CssValue(business.DangerColor, "#B42318");
+
         business.InputBackgroundColor = CssValue(business.InputBackgroundColor, "#FFFFFF");
         business.InputTextColor = CssValue(business.InputTextColor, "#151515");
         business.InputBorderColor = CssValue(business.InputBorderColor, "#E5E7EB");
         business.InputFocusColor = CssValue(business.InputFocusColor, "#C9A46A");
         business.LabelTextColor = CssValue(business.LabelTextColor, "#374151");
+
         business.TimeSlotBackgroundColor = CssValue(business.TimeSlotBackgroundColor, "#FFFFFF");
         business.TimeSlotTextColor = CssValue(business.TimeSlotTextColor, "#151515");
         business.TimeSlotActiveBackgroundColor = CssValue(business.TimeSlotActiveBackgroundColor, "#151515");
         business.TimeSlotActiveTextColor = CssValue(business.TimeSlotActiveTextColor, "#FFFFFF");
+
         business.CustomerPortalCardColor = CssValue(business.CustomerPortalCardColor, "#FFFFFF");
     }
 
@@ -966,6 +1144,42 @@ else
             return $"background-image:linear-gradient(135deg, {primaryColor}, {secondaryColor}); color:{heroTextColor};";
 
         return $"background-image:linear-gradient({overlay}, {overlay}), url('{business.CoverImageUrl}'); background-position:center; background-size:cover; color:{heroTextColor};";
+    }
+
+    private string GetAdvancedFooterStyle()
+    {
+        if (business is null)
+            return "";
+
+        return string.Join(" ",
+            $"background-color:{CssValue(business.FooterBackgroundColor, "#151515")};",
+            $"color:{CssValue(business.FooterTextColor, "#FFFFFF")};",
+            $"border-top:1px solid {CssValue(business.FooterBorderColor, "#2A2A2A")};"
+        );
+    }
+
+    private string GetFooterHeadingStyle()
+    {
+        if (business is null)
+            return "";
+
+        return $"color:{CssValue(business.FooterHeadingColor, "#FFFFFF")};";
+    }
+
+    private string GetFooterMutedStyle()
+    {
+        if (business is null)
+            return "";
+
+        return $"color:{CssValue(business.FooterMutedTextColor, "#A1A1AA")};";
+    }
+
+    private string GetFooterLinkStyle()
+    {
+        if (business is null)
+            return "";
+
+        return $"color:{CssValue(business.FooterLinkColor, "#FFFFFF")};";
     }
 
     private void ViewPublicPage() => Navigation.NavigateTo("/");
