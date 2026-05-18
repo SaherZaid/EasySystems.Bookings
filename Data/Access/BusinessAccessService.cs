@@ -31,6 +31,7 @@ public class BusinessAccessService
                 CanManageStaff = true,
                 CanManageBookings = true,
                 CanManageCalendar = true,
+                CanManageLegal = true,
                 CanManageSettings = true
             };
         }
@@ -59,6 +60,7 @@ public class BusinessAccessService
             CanManageStaff = businessUser.CanManageStaff,
             CanManageBookings = businessUser.CanManageBookings,
             CanManageCalendar = businessUser.CanManageCalendar,
+            CanManageLegal = businessUser.CanManageLegal,
             CanManageSettings = businessUser.CanManageSettings
         };
     }

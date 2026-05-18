@@ -21,6 +21,7 @@ public class BusinessUser
     public bool CanManageCalendar { get; set; }
 
     public bool CanManageSettings { get; set; }
+    public bool CanManageLegal { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

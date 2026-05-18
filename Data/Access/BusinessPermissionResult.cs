@@ -16,5 +16,7 @@ public class BusinessPermissionResult
 
     public bool CanManageCalendar { get; set; }
 
+    public bool CanManageLegal { get; set; }
+
     public bool CanManageSettings { get; set; }
 }

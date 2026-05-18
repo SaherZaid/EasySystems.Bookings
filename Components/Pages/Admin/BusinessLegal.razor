@@ -14,39 +14,71 @@
 
 <AdminNavbar BusinessId="BusinessId" />
 
-@if (business is null)
+@if (!Permissions.HasAccess)
 {
     <div class="admin-page">
         <div class="admin-shell">
-            <div class="admin-loading-card">
-                Laddar...
+            <div class="admin-loading-card">Kontrollerar åtkomst...</div>
+        </div>
+    </div>
+}
+else if (!Permissions.CanManageLegal)
+{
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-alert danger">
+                Du har inte behörighet att ändra juridiska sidor.
             </div>
+        </div>
+    </div>
+}
+else if (business is null)
+{
+    <div class="admin-page">
+        <div class="admin-shell">
+            <div class="admin-loading-card">Laddar juridiska sidor...</div>
         </div>
     </div>
 }
 else
 {
-    <div class="admin-page">
+    <div class="admin-page legal-admin-page">
         <div class="admin-shell">
 
             <section class="admin-hero">
                 <div>
                     <p class="admin-eyebrow">Juridik</p>
                     <h1>Policy & villkor</h1>
-                    <p>Hantera sekretesspolicy och användarvillkor för kunder.</p>
+                    <p>Hantera sekretesspolicy och användarvillkor som visas för kunderna.</p>
+                </div>
+
+                <div class="admin-hero-actions">
+                    <a class="admin-secondary-btn" href="/admin/businesses/edit/@BusinessId">
+                        Inställningar
+                    </a>
+
+                    <a class="admin-secondary-btn" href="/">
+                        Visa kundsida
+                    </a>
                 </div>
             </section>
 
             <EditForm Model="business" OnValidSubmit="SaveAsync">
-
                 <div class="business-form-card">
 
                     <h2>Privacy Policy</h2>
+                    <small>
+                        Skriv hur kunddata hanteras, till exempel namn, e-post, telefonnummer,
+                        bokningar, betalningar och kontaktuppgifter.
+                    </small>
 
                     <InputTextArea class="settings-input settings-textarea legal-textarea"
                                    @bind-Value="business.PrivacyPolicyHtml" />
 
                     <h2>Terms & Conditions</h2>
+                    <small>
+                        Skriv villkor för bokning, avbokning, betalning, ansvar och användning av sidan.
+                    </small>
 
                     <InputTextArea class="settings-input settings-textarea legal-textarea"
                                    @bind-Value="business.TermsAndConditionsHtml" />
@@ -58,14 +90,24 @@ else
                         </div>
                     }
 
+                    @if (!string.IsNullOrWhiteSpace(errorMessage))
+                    {
+                        <div class="settings-alert error">
+                            @errorMessage
+                        </div>
+                    }
+
                     <div class="settings-actions">
-                        <button class="admin-primary-btn" type="submit">
-                            Spara
+                        <button class="admin-primary-btn" type="submit" disabled="@isSaving">
+                            @(isSaving ? "Sparar..." : "Spara juridiska sidor")
                         </button>
+
+                        <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/overview">
+                            Avbryt
+                        </a>
                     </div>
 
                 </div>
-
             </EditForm>
 
         </div>
@@ -73,14 +115,17 @@ else
 }
 
 @code {
-
     private Business? business;
-
     private string? successMessage;
+    private string? errorMessage;
+    private bool isSaving;
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
+
+        if (!Permissions.HasAccess || !Permissions.CanManageLegal)
+            return;
 
         business = await Db.Businesses
             .FirstOrDefaultAsync(x => x.Id == BusinessId);
@@ -96,8 +141,26 @@ else
         if (business is null)
             return;
 
-        await Db.SaveChangesAsync();
+        isSaving = true;
+        successMessage = null;
+        errorMessage = null;
 
-        successMessage = "Sidorna har sparats.";
+        try
+        {
+            business.PrivacyPolicyHtml = business.PrivacyPolicyHtml?.Trim();
+            business.TermsAndConditionsHtml = business.TermsAndConditionsHtml?.Trim();
+
+            await Db.SaveChangesAsync();
+
+            successMessage = "Juridiska sidor har sparats.";
+        }
+        catch
+        {
+            errorMessage = "Något gick fel när sidorna skulle sparas.";
+        }
+        finally
+        {
+            isSaving = false;
+        }
     }
 }
