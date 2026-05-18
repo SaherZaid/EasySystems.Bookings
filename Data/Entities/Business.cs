@@ -152,6 +152,31 @@ public class Business
     public string NavbarTextColor { get; set; } = "#151515";
 
     [MaxLength(30)]
+    public string NavbarActiveBackgroundColor { get; set; } = "#F8F4ED";
+
+    [MaxLength(30)]
+    public string NavbarActiveTextColor { get; set; } = "#151515";
+
+    [MaxLength(30)]
+    public string NavbarShadowColor { get; set; } = "rgba(17,24,39,.10)";
+
+    [MaxLength(30)]
+    public string NavbarLogoBackgroundColor { get; set; } = "#151515";
+
+    [MaxLength(30)]
+    public string NavbarLogoTextColor { get; set; } = "#FFFFFF";
+
+    public int NavbarLogoSize { get; set; } = 72;
+
+    public int NavbarHeight { get; set; } = 92;
+
+    public int NavbarBorderRadius { get; set; } = 28;
+
+    public bool NavbarIsSticky { get; set; } = true;
+
+    public bool NavbarIsFloating { get; set; } = true;
+
+    [MaxLength(30)]
     public string FooterBackgroundColor { get; set; } = "#151515";
 
     [MaxLength(30)]
@@ -222,6 +247,12 @@ public class Business
 
     [MaxLength(30)]
     public string NavbarButtonBackgroundColor { get; set; } = "#151515";
+
+    [MaxLength(30)]
+    public string NavbarBrandTitleColor { get; set; } = "#2A1B17";
+
+    [MaxLength(30)]
+    public string NavbarBrandSubtitleColor { get; set; } = "#6F4E45";
 
     [MaxLength(30)]
     public string NavbarButtonTextColor { get; set; } = "#FFFFFF";

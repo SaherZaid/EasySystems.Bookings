@@ -2,116 +2,128 @@
 @rendermode InteractiveServer
 
 @using System.ComponentModel.DataAnnotations
+@using EasySystems.Bookings.Data
 @using EasySystems.Bookings.Data.Entities
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
 
 @attribute [Authorize]
 
 @inject AuthenticationStateProvider AuthStateProvider
 @inject UserManager<ApplicationUser> UserManager
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
 @inject NavigationManager Navigation
 
 <PageTitle>Min profil | EasySystems</PageTitle>
 
-<div class="booking-profile-page">
-    <div class="booking-profile-shell">
-        <section class="booking-profile-hero">
-            <div class="booking-profile-avatar">
+<PublicNavbar />
+
+<div class="customer-profile-page" style="@GetProfileThemeStyle()">
+    <div class="customer-profile-shell">
+
+        <section class="customer-profile-hero" style="@GetHeroStyle()">
+            <div class="customer-profile-avatar">
                 @GetInitials()
             </div>
 
             <div>
-                <p class="booking-auth-eyebrow">Mitt konto</p>
+                <p>Mitt konto</p>
                 <h1>@GetDisplayName()</h1>
-                <p>@currentUser?.Email</p>
+                <span>@currentUser?.Email</span>
             </div>
         </section>
 
-        <div class="booking-profile-grid">
-            <section class="booking-profile-card">
-                <h2>Profiluppgifter</h2>
-                <p>Uppdatera namn och telefonnummer som används för bokningar och kontoåtkomst.</p>
+        <div class="customer-profile-grid">
+            <section class="customer-profile-card">
+                <div class="customer-profile-section-head">
+                    <p>Profiluppgifter</p>
+                    <h2>Uppdatera dina uppgifter</h2>
+                    <span>Namn och telefonnummer används när du bokar tider.</span>
+                </div>
 
                 @if (isLoading)
                 {
-                    <div class="booking-profile-loading">Loading profile...</div>
+                    <div class="customer-profile-loading">Laddar profil...</div>
                 }
                 else
                 {
                     <EditForm Model="Input" OnValidSubmit="SaveProfile" FormName="customer-profile">
                         <DataAnnotationsValidator />
-                        <ValidationSummary class="booking-auth-error-list" />
+                        <ValidationSummary class="customer-profile-validation-summary" />
 
-                        <div class="booking-auth-two-cols">
-                            <div class="booking-auth-field">
+                        <div class="customer-profile-two-cols">
+                            <div class="customer-profile-field">
                                 <label>Förnamn</label>
-                                <InputText class="booking-auth-input" @bind-Value="Input.FirstName" />
-                                <ValidationMessage For="() => Input.FirstName" class="booking-auth-validation" />
+                                <InputText class="customer-profile-input" @bind-Value="Input.FirstName" />
+                                <ValidationMessage For="() => Input.FirstName" class="customer-profile-validation" />
                             </div>
 
-                            <div class="booking-auth-field">
+                            <div class="customer-profile-field">
                                 <label>Efternamn</label>
-                                <InputText class="booking-auth-input" @bind-Value="Input.LastName" />
-                                <ValidationMessage For="() => Input.LastName" class="booking-auth-validation" />
+                                <InputText class="customer-profile-input" @bind-Value="Input.LastName" />
+                                <ValidationMessage For="() => Input.LastName" class="customer-profile-validation" />
                             </div>
                         </div>
 
-                        <div class="booking-auth-field">
+                        <div class="customer-profile-field">
                             <label>E-post</label>
-                            <input class="booking-auth-input" value="@Input.Email" disabled />
-                            <small class="booking-profile-help">E-post ändras inte från den här sidan just nu.</small>
+                            <input class="customer-profile-input" value="@Input.Email" disabled />
+                            <small>E-post ändras inte från den här sidan just nu.</small>
                         </div>
 
-                        <div class="booking-auth-field">
+                        <div class="customer-profile-field">
                             <label>Telefonnummer</label>
-                            <InputText class="booking-auth-input" @bind-Value="Input.PhoneNumber" />
-                            <ValidationMessage For="() => Input.PhoneNumber" class="booking-auth-validation" />
+                            <InputText class="customer-profile-input" @bind-Value="Input.PhoneNumber" />
+                            <ValidationMessage For="() => Input.PhoneNumber" class="customer-profile-validation" />
                         </div>
-
-                        <button type="submit" class="booking-auth-submit">
-                            Spara profil
-                        </button>
 
                         @if (!string.IsNullOrWhiteSpace(successMessage))
                         {
-                            <div class="booking-profile-success">@successMessage</div>
+                            <div class="customer-profile-alert success">@successMessage</div>
                         }
 
                         @if (!string.IsNullOrWhiteSpace(errorMessage))
                         {
-                            <div class="booking-profile-error">@errorMessage</div>
+                            <div class="customer-profile-alert error">@errorMessage</div>
                         }
+
+                        <button type="submit" class="customer-profile-primary-btn">
+                            Spara profil
+                        </button>
                     </EditForm>
                 }
             </section>
 
-            <aside class="booking-profile-card booking-profile-side">
-                <h2>Konto</h2>
+            <aside class="customer-profile-card customer-profile-side">
+                <div class="customer-profile-section-head">
+                    <p>Konto</p>
+                    <h2>Kontodetaljer</h2>
+                </div>
 
-                <div class="booking-profile-info-row">
+                <div class="customer-profile-info-row">
                     <span>E-post verifierad</span>
                     <strong>@(currentUser?.EmailConfirmed == true ? "Ja" : "Nej")</strong>
                 </div>
 
-                <div class="booking-profile-info-row">
+                <div class="customer-profile-info-row">
                     <span>Telefon</span>
                     <strong>@(string.IsNullOrWhiteSpace(currentUser?.PhoneNumber) ? "Inte tillagd" : currentUser.PhoneNumber)</strong>
                 </div>
 
-                <div class="booking-profile-info-row">
+                <div class="customer-profile-info-row">
                     <span>Skapad</span>
                     <strong>@currentUser?.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")</strong>
                 </div>
 
-                <div class="booking-profile-actions">
-                    <button type="button" class="booking-auth-secondary-link" @onclick="GoToBookings">
+                <div class="customer-profile-actions">
+                    <button type="button" class="customer-profile-secondary-btn" @onclick="GoToBookings">
                         Mina bokningar
                     </button>
 
-                    <button type="button" class="booking-auth-secondary-link" @onclick="GoBack">
-                        Till startsidan
+                    <button type="button" class="customer-profile-secondary-btn" @onclick="GoBack">
+                        Till bokningssidan
                     </button>
                 </div>
             </aside>
@@ -121,8 +133,9 @@
 
 @code {
     private ApplicationUser? currentUser;
-    private bool isLoading = true;
+    private Business? themeBusiness;
 
+    private bool isLoading = true;
     private string? successMessage;
     private string? errorMessage;
 
@@ -139,6 +152,22 @@
             Navigation.NavigateTo("/Account/Login", forceLoad: true);
             return;
         }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        themeBusiness = await db.Bookings
+            .AsNoTracking()
+            .Include(x => x.Business)
+            .Where(x => x.CustomerUserId == currentUser.Id)
+            .OrderByDescending(x => x.StartTime)
+            .Select(x => x.Business)
+            .FirstOrDefaultAsync();
+
+        themeBusiness ??= await db.Businesses
+            .AsNoTracking()
+            .Where(x => x.IsActive && x.AllowOnlineBookings)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync();
 
         Input = new InputModel
             {
@@ -174,6 +203,49 @@
         successMessage = "Profilen har uppdaterats.";
     }
 
+    private string GetProfileThemeStyle()
+    {
+        if (themeBusiness is null)
+            return "";
+
+        return string.Join(" ",
+            $"--profile-page-bg:{CssValue(themeBusiness.PageBackgroundColor, "#F8F4ED")};",
+            $"--profile-card-bg:{CssValue(themeBusiness.CustomerPortalCardColor, themeBusiness.CardBackgroundColor)};",
+            $"--profile-section-bg:{CssValue(themeBusiness.SectionBackgroundColor, "#FFFFFF")};",
+            $"--profile-heading:{CssValue(themeBusiness.HeadingTextColor, "#151515")};",
+            $"--profile-body:{CssValue(themeBusiness.BodyTextColor, "#4B5563")};",
+            $"--profile-muted:{CssValue(themeBusiness.MutedTextColor, "#7A6F63")};",
+            $"--profile-primary:{CssValue(themeBusiness.PrimaryColor, "#151515")};",
+            $"--profile-secondary:{CssValue(themeBusiness.SecondaryColor, "#C9A46A")};",
+            $"--profile-button-bg:{CssValue(themeBusiness.ButtonBackgroundColor, "#151515")};",
+            $"--profile-button-text:{CssValue(themeBusiness.ButtonTextColor, "#FFFFFF")};",
+            $"--profile-secondary-button-bg:{CssValue(themeBusiness.SecondaryButtonBackgroundColor, "#FFFFFF")};",
+            $"--profile-secondary-button-text:{CssValue(themeBusiness.SecondaryButtonTextColor, "#151515")};",
+            $"--profile-input-bg:{CssValue(themeBusiness.InputBackgroundColor, "#FFFFFF")};",
+            $"--profile-input-text:{CssValue(themeBusiness.InputTextColor, "#151515")};",
+            $"--profile-input-border:{CssValue(themeBusiness.InputBorderColor, "#E5E7EB")};",
+            $"--profile-input-focus:{CssValue(themeBusiness.InputFocusColor, "#C9A46A")};",
+            $"--profile-label:{CssValue(themeBusiness.LabelTextColor, "#374151")};",
+            $"--profile-success:{CssValue(themeBusiness.SuccessColor, "#087443")};",
+            $"--profile-danger:{CssValue(themeBusiness.DangerColor, "#B42318")};",
+            $"background-color:{CssValue(themeBusiness.PageBackgroundColor, "#F8F4ED")};",
+            $"color:{CssValue(themeBusiness.BodyTextColor, "#4B5563")};"
+        );
+    }
+
+    private string GetHeroStyle()
+    {
+        if (themeBusiness is null)
+            return "";
+
+        if (string.IsNullOrWhiteSpace(themeBusiness.CoverImageUrl))
+        {
+            return $"background-image:linear-gradient(135deg,{CssValue(themeBusiness.PrimaryColor, "#151515")},{CssValue(themeBusiness.SecondaryColor, "#C9A46A")}); color:{CssValue(themeBusiness.HeroTextColor, "#FFFFFF")};";
+        }
+
+        return $"background-image:linear-gradient({CssValue(themeBusiness.HeroOverlayColor, "rgba(0,0,0,.55)")},{CssValue(themeBusiness.HeroOverlayColor, "rgba(0,0,0,.55)")}), url('{themeBusiness.CoverImageUrl}'); background-position:center; background-size:cover; color:{CssValue(themeBusiness.HeroTextColor, "#FFFFFF")};";
+    }
+
     private string GetDisplayName()
     {
         if (currentUser is null)
@@ -181,9 +253,9 @@
 
         var fullName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
 
-        return !string.IsNullOrWhiteSpace(fullName)
-            ? fullName
-            : currentUser.Email ?? "Min profil";
+        return string.IsNullOrWhiteSpace(fullName)
+            ? currentUser.Email ?? "Min profil"
+            : fullName;
     }
 
     private string GetInitials()
@@ -191,8 +263,11 @@
         if (currentUser is null)
             return "U";
 
-        if (!string.IsNullOrWhiteSpace(currentUser.FirstName) && !string.IsNullOrWhiteSpace(currentUser.LastName))
+        if (!string.IsNullOrWhiteSpace(currentUser.FirstName) &&
+            !string.IsNullOrWhiteSpace(currentUser.LastName))
+        {
             return $"{currentUser.FirstName[0]}{currentUser.LastName[0]}".ToUpper();
+        }
 
         if (!string.IsNullOrWhiteSpace(currentUser.Email))
             return currentUser.Email[0].ToString().ToUpper();
@@ -202,12 +277,17 @@
 
     private void GoToBookings()
     {
-        Navigation.NavigateTo("/");
+        Navigation.NavigateTo("/Account/Bookings");
     }
 
     private void GoBack()
     {
         Navigation.NavigateTo("/");
+    }
+
+    private static string CssValue(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 
     private sealed class InputModel

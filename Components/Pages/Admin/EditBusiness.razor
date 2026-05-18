@@ -57,9 +57,7 @@ else
                 </div>
 
                 <div class="admin-hero-actions">
-                    <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/overview">
-                        Översikt
-                    </a>
+                    <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/overview">Översikt</a>
                 </div>
             </section>
 
@@ -181,17 +179,9 @@ else
                                     </label>
 
                                     <div class="weekly-time-inputs">
-                                        <InputText type="time"
-                                                   class="settings-input"
-                                                   @bind-Value="day.OpenText"
-                                                   disabled="@(!day.IsOpen)" />
-
+                                        <InputText type="time" class="settings-input" @bind-Value="day.OpenText" disabled="@(!day.IsOpen)" />
                                         <span>till</span>
-
-                                        <InputText type="time"
-                                                   class="settings-input"
-                                                   @bind-Value="day.CloseText"
-                                                   disabled="@(!day.IsOpen)" />
+                                        <InputText type="time" class="settings-input" @bind-Value="day.CloseText" disabled="@(!day.IsOpen)" />
                                     </div>
                                 </div>
                             }
@@ -262,12 +252,9 @@ else
                             <ColorInput Label="Sekundär knapp" @bind-Value="business.SecondaryButtonBackgroundColor" />
                             <ColorInput Label="Sekundär knapp text" @bind-Value="business.SecondaryButtonTextColor" />
 
-                            <ColorInput Label="Toppmeny bakgrund" @bind-Value="business.NavbarBackgroundColor" />
-                            <ColorInput Label="Toppmeny text" @bind-Value="business.NavbarTextColor" />
-
                             <ColorInput Label="Sidfot bakgrund" @bind-Value="business.FooterBackgroundColor" />
                             <ColorInput Label="Sidfot text" @bind-Value="business.FooterTextColor" />
-                            
+
                             <ColorInput Label="Hero-text" @bind-Value="business.HeroTextColor" />
                             <ColorInput Label="Tjänstekort" @bind-Value="business.ServiceCardBackgroundColor" />
                             <ColorInput Label="Personalkort" @bind-Value="business.StaffCardBackgroundColor" />
@@ -277,12 +264,61 @@ else
                             <ColorInput Label="Success" @bind-Value="business.SuccessColor" />
                             <ColorInput Label="Varning" @bind-Value="business.WarningColor" />
                             <ColorInput Label="Fara" @bind-Value="business.DangerColor" />
+                        </div>
 
+                        <h2>Navbar design</h2>
+                        <small>De här inställningarna styr kundsidans toppmeny på desktop och mobil.</small>
+
+                        <div class="settings-color-grid">
+                            <ColorInput Label="Navbar bakgrund" @bind-Value="business.NavbarBackgroundColor" />
+                            <ColorInput Label="Navbar text" @bind-Value="business.NavbarTextColor" />
                             <ColorInput Label="Navbar kant" @bind-Value="business.NavbarBorderColor" />
                             <ColorInput Label="Navbar hover" @bind-Value="business.NavbarLinkHoverColor" />
+                            <ColorInput Label="Aktiv länk bakgrund" @bind-Value="business.NavbarActiveBackgroundColor" />
+                            <ColorInput Label="Aktiv länk text" @bind-Value="business.NavbarActiveTextColor" />
                             <ColorInput Label="Navbar knapp" @bind-Value="business.NavbarButtonBackgroundColor" />
                             <ColorInput Label="Navbar knapptext" @bind-Value="business.NavbarButtonTextColor" />
                             <ColorInput Label="Navbar mobil bakgrund" @bind-Value="business.NavbarMobileBackgroundColor" />
+                            <ColorInput Label="Logo bakgrund" @bind-Value="business.NavbarLogoBackgroundColor" />
+                            <ColorInput Label="Logo text" @bind-Value="business.NavbarLogoTextColor" />
+                            <ColorInput Label="Verksamhetsnamn text" @bind-Value="business.NavbarBrandTitleColor" />
+                            <ColorInput Label="Typ av verksamhet text" @bind-Value="business.NavbarBrandSubtitleColor" />
+                        </div>
+
+                        <label>Navbar skugga</label>
+                        <InputText class="settings-input" @bind-Value="business.NavbarShadowColor" placeholder="rgba(17,24,39,.10)" />
+
+                        <div class="settings-two-cols">
+                            <div>
+                                <label>Logo storlek</label>
+                                <InputNumber class="settings-input" @bind-Value="business.NavbarLogoSize" />
+                            </div>
+
+                            <div>
+                                <label>Navbar höjd</label>
+                                <InputNumber class="settings-input" @bind-Value="business.NavbarHeight" />
+                            </div>
+                        </div>
+
+                        <label>Navbar rundning</label>
+                        <InputNumber class="settings-input" @bind-Value="business.NavbarBorderRadius" />
+
+                        <div class="settings-switch-grid">
+                            <label class="settings-switch">
+                                <InputCheckbox @bind-Value="business.NavbarIsSticky" />
+                                <span>
+                                    <strong>Sticky navbar</strong>
+                                    <small>Menyn följer med när kunden scrollar.</small>
+                                </span>
+                            </label>
+
+                            <label class="settings-switch">
+                                <InputCheckbox @bind-Value="business.NavbarIsFloating" />
+                                <span>
+                                    <strong>Floating navbar</strong>
+                                    <small>Ger menyn en modern flytande känsla.</small>
+                                </span>
+                            </label>
                         </div>
 
                         <h2>Kundsidans formulär</h2>
@@ -331,10 +367,17 @@ else
                         <p class="preview-label">Live preview</p>
 
                         <div class="booking-public-preview" style="@GetPreviewStyle()">
-                            <div class="preview-navbar" style="@GetNavbarStyle()">
-                                <strong>@DisplayOrFallback(business.Name, "Verksamhet")</strong>
-                                <span>Boka</span>
-                                <span>Tjänster</span>
+                            <div class="preview-navbar" style="@GetAdvancedNavbarPreviewStyle()">
+                                <div class="preview-navbar-brand">
+                                    <span style="@GetPreviewLogoStyle()">@GetInitials()</span>
+                                    <strong>@DisplayOrFallback(business.Name, "Verksamhet")</strong>
+                                </div>
+
+                                <div class="preview-navbar-links">
+                                    <span style="@GetNavbarActivePreviewStyle()">Hem</span>
+                                    <span>Boka</span>
+                                    <span>Tjänster</span>
+                                </div>
                             </div>
 
                             <div class="preview-hero" style="@GetHeroStyle()">
@@ -468,13 +511,7 @@ else
 
         ApplyDefaultDesignValues();
 
-        if (!ApplyWeeklyHoursToBusiness())
-        {
-            isSaving = false;
-            return;
-        }
-
-        if (!ValidateBusiness())
+        if (!ApplyWeeklyHoursToBusiness() || !ValidateBusiness())
         {
             isSaving = false;
             return;
@@ -708,56 +745,61 @@ else
 
         business.PrimaryColor = CssValue(business.PrimaryColor, "#151515");
         business.SecondaryColor = CssValue(business.SecondaryColor, "#C9A46A");
-
         business.PageBackgroundColor = CssValue(business.PageBackgroundColor, "#F8F4ED");
         business.SectionBackgroundColor = CssValue(business.SectionBackgroundColor, "#FFFFFF");
         business.CardBackgroundColor = CssValue(business.CardBackgroundColor, "#FFFFFF");
-
         business.HeadingTextColor = CssValue(business.HeadingTextColor, "#151515");
         business.BodyTextColor = CssValue(business.BodyTextColor, "#4B5563");
         business.MutedTextColor = CssValue(business.MutedTextColor, "#7A6F63");
-
         business.ButtonBackgroundColor = CssValue(business.ButtonBackgroundColor, "#151515");
         business.ButtonTextColor = CssValue(business.ButtonTextColor, "#FFFFFF");
         business.SecondaryButtonBackgroundColor = CssValue(business.SecondaryButtonBackgroundColor, "#FFFFFF");
         business.SecondaryButtonTextColor = CssValue(business.SecondaryButtonTextColor, "#151515");
-
         business.NavbarBackgroundColor = CssValue(business.NavbarBackgroundColor, "#FFFFFF");
         business.NavbarTextColor = CssValue(business.NavbarTextColor, "#151515");
-
-        business.FooterBackgroundColor = CssValue(business.FooterBackgroundColor, "#151515");
-        business.FooterTextColor = CssValue(business.FooterTextColor, "#FFFFFF");
-
-        business.HeroTextColor = CssValue(business.HeroTextColor, "#FFFFFF");
-        business.HeroOverlayColor = CssValue(business.HeroOverlayColor, "rgba(0,0,0,.55)");
-
-        business.ServiceCardBackgroundColor = CssValue(business.ServiceCardBackgroundColor, "#FFFFFF");
-        business.StaffCardBackgroundColor = CssValue(business.StaffCardBackgroundColor, "#FFFFFF");
-        business.BookingPanelBackgroundColor = CssValue(business.BookingPanelBackgroundColor, "#FFFFFF");
-        business.PriceTextColor = CssValue(business.PriceTextColor, "#151515");
-
-        business.SuccessColor = CssValue(business.SuccessColor, "#087443");
-        business.WarningColor = CssValue(business.WarningColor, "#B45309");
-        business.DangerColor = CssValue(business.DangerColor, "#B42318");
-
-        business.InputBackgroundColor = CssValue(business.InputBackgroundColor, "#FFFFFF");
-        business.InputTextColor = CssValue(business.InputTextColor, "#151515");
-        business.InputBorderColor = CssValue(business.InputBorderColor, "#E5E7EB");
-        business.InputFocusColor = CssValue(business.InputFocusColor, "#C9A46A");
-        business.LabelTextColor = CssValue(business.LabelTextColor, "#374151");
-
-        business.TimeSlotBackgroundColor = CssValue(business.TimeSlotBackgroundColor, "#FFFFFF");
-        business.TimeSlotTextColor = CssValue(business.TimeSlotTextColor, "#151515");
-        business.TimeSlotActiveBackgroundColor = CssValue(business.TimeSlotActiveBackgroundColor, "#151515");
-        business.TimeSlotActiveTextColor = CssValue(business.TimeSlotActiveTextColor, "#FFFFFF");
-
-        business.CustomerPortalCardColor = CssValue(business.CustomerPortalCardColor, "#FFFFFF");
-
         business.NavbarBorderColor = CssValue(business.NavbarBorderColor, "#E5E7EB");
         business.NavbarLinkHoverColor = CssValue(business.NavbarLinkHoverColor, "#C9A46A");
         business.NavbarButtonBackgroundColor = CssValue(business.NavbarButtonBackgroundColor, "#151515");
         business.NavbarButtonTextColor = CssValue(business.NavbarButtonTextColor, "#FFFFFF");
         business.NavbarMobileBackgroundColor = CssValue(business.NavbarMobileBackgroundColor, "#FFFFFF");
+        business.NavbarActiveBackgroundColor = CssValue(business.NavbarActiveBackgroundColor, "#F8F4ED");
+        business.NavbarActiveTextColor = CssValue(business.NavbarActiveTextColor, "#151515");
+        business.NavbarShadowColor = CssValue(business.NavbarShadowColor, "rgba(17,24,39,.10)");
+        business.NavbarLogoBackgroundColor = CssValue(business.NavbarLogoBackgroundColor, "#151515");
+        business.NavbarLogoTextColor = CssValue(business.NavbarLogoTextColor, "#FFFFFF");
+        business.NavbarBrandTitleColor = CssValue(business.NavbarBrandTitleColor, "#2A1B17");
+        business.NavbarBrandSubtitleColor = CssValue(business.NavbarBrandSubtitleColor, "#6F4E45");
+
+        if (business.NavbarLogoSize <= 0)
+            business.NavbarLogoSize = 72;
+
+        if (business.NavbarHeight <= 0)
+            business.NavbarHeight = 92;
+
+        if (business.NavbarBorderRadius <= 0)
+            business.NavbarBorderRadius = 28;
+
+        business.FooterBackgroundColor = CssValue(business.FooterBackgroundColor, "#151515");
+        business.FooterTextColor = CssValue(business.FooterTextColor, "#FFFFFF");
+        business.HeroTextColor = CssValue(business.HeroTextColor, "#FFFFFF");
+        business.HeroOverlayColor = CssValue(business.HeroOverlayColor, "rgba(0,0,0,.55)");
+        business.ServiceCardBackgroundColor = CssValue(business.ServiceCardBackgroundColor, "#FFFFFF");
+        business.StaffCardBackgroundColor = CssValue(business.StaffCardBackgroundColor, "#FFFFFF");
+        business.BookingPanelBackgroundColor = CssValue(business.BookingPanelBackgroundColor, "#FFFFFF");
+        business.PriceTextColor = CssValue(business.PriceTextColor, "#151515");
+        business.SuccessColor = CssValue(business.SuccessColor, "#087443");
+        business.WarningColor = CssValue(business.WarningColor, "#B45309");
+        business.DangerColor = CssValue(business.DangerColor, "#B42318");
+        business.InputBackgroundColor = CssValue(business.InputBackgroundColor, "#FFFFFF");
+        business.InputTextColor = CssValue(business.InputTextColor, "#151515");
+        business.InputBorderColor = CssValue(business.InputBorderColor, "#E5E7EB");
+        business.InputFocusColor = CssValue(business.InputFocusColor, "#C9A46A");
+        business.LabelTextColor = CssValue(business.LabelTextColor, "#374151");
+        business.TimeSlotBackgroundColor = CssValue(business.TimeSlotBackgroundColor, "#FFFFFF");
+        business.TimeSlotTextColor = CssValue(business.TimeSlotTextColor, "#151515");
+        business.TimeSlotActiveBackgroundColor = CssValue(business.TimeSlotActiveBackgroundColor, "#151515");
+        business.TimeSlotActiveTextColor = CssValue(business.TimeSlotActiveTextColor, "#FFFFFF");
+        business.CustomerPortalCardColor = CssValue(business.CustomerPortalCardColor, "#FFFFFF");
     }
 
     private static string CssValue(string? value, string fallback) =>
@@ -793,15 +835,47 @@ else
     private string GetPreviewOpeningHours()
     {
         var first = weeklyHours.FirstOrDefault(x => x.IsOpen);
-
-        if (first is null)
-            return "Stängt";
-
-        return $"{first.Label[..3]} {first.OpenText}-{first.CloseText}";
+        return first is null ? "Stängt" : $"{first.Label[..3]} {first.OpenText}-{first.CloseText}";
     }
 
     private string GetPreviewStyle() =>
         business is null ? "" : $"background-color:{CssValue(business.PageBackgroundColor, "#F8F4ED")}; color:{CssValue(business.BodyTextColor, "#4B5563")};";
+
+    private string GetAdvancedNavbarPreviewStyle()
+    {
+        if (business is null)
+            return "";
+
+        return string.Join(" ",
+            $"background-color:{CssValue(business.NavbarBackgroundColor, "#FFFFFF")};",
+            $"color:{CssValue(business.NavbarTextColor, "#151515")};",
+            $"border:1px solid {CssValue(business.NavbarBorderColor, "#E5E7EB")};",
+            $"border-radius:{business.NavbarBorderRadius}px;",
+            $"min-height:{business.NavbarHeight}px;",
+            $"box-shadow:0 18px 50px {CssValue(business.NavbarShadowColor, "rgba(17,24,39,.10)")};"
+        );
+    }
+
+    private string GetPreviewLogoStyle()
+    {
+        if (business is null)
+            return "";
+
+        return string.Join(" ",
+            $"width:{business.NavbarLogoSize}px;",
+            $"height:{business.NavbarLogoSize}px;",
+            $"background-color:{CssValue(business.NavbarLogoBackgroundColor, "#151515")};",
+            $"color:{CssValue(business.NavbarLogoTextColor, "#FFFFFF")};"
+        );
+    }
+
+    private string GetNavbarActivePreviewStyle()
+    {
+        if (business is null)
+            return "";
+
+        return $"background-color:{CssValue(business.NavbarActiveBackgroundColor, "#F8F4ED")}; color:{CssValue(business.NavbarActiveTextColor, "#151515")};";
+    }
 
     private string GetNavbarStyle() =>
         business is null ? "" : $"background-color:{CssValue(business.NavbarBackgroundColor, "#FFFFFF")}; color:{CssValue(business.NavbarTextColor, "#151515")};";
@@ -889,22 +963,14 @@ else
         var overlay = CssValue(business.HeroOverlayColor, "rgba(0,0,0,.55)");
 
         if (string.IsNullOrWhiteSpace(business.CoverImageUrl))
-        {
             return $"background-image:linear-gradient(135deg, {primaryColor}, {secondaryColor}); color:{heroTextColor};";
-        }
 
         return $"background-image:linear-gradient({overlay}, {overlay}), url('{business.CoverImageUrl}'); background-position:center; background-size:cover; color:{heroTextColor};";
     }
 
-    private void ViewPublicPage()
-    {
-        Navigation.NavigateTo("/");
-    }
+    private void ViewPublicPage() => Navigation.NavigateTo("/");
 
-    private void BackToOverview()
-    {
-        Navigation.NavigateTo($"/admin/businesses/{BusinessId}/overview");
-    }
+    private void BackToOverview() => Navigation.NavigateTo($"/admin/businesses/{BusinessId}/overview");
 
     private sealed class WeeklyHoursModel
     {

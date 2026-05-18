@@ -541,7 +541,7 @@ else
 
     private async Task CreateBookingAsync()
     {
-        await using var Db = await DbFactory.CreateDbContextAsync();
+        await using var db = await DbFactory.CreateDbContextAsync();
 
         errorMessage = null;
         successMessage = null;
@@ -558,13 +558,15 @@ else
             return;
         }
 
-        booking.CustomerName = booking.CustomerName.Trim();
+        booking.CustomerName = booking.CustomerName?.Trim() ?? "";
         booking.CustomerEmail = booking.CustomerEmail?.Trim();
         booking.CustomerPhone = booking.CustomerPhone?.Trim();
         booking.Notes = booking.Notes?.Trim();
 
         if (currentUser is not null)
+        {
             booking.CustomerUserId = currentUser.Id;
+        }
 
         if (string.IsNullOrWhiteSpace(booking.CustomerName))
         {
@@ -603,34 +605,28 @@ else
             return;
         }
 
-        booking.BusinessId = business.Id;
-        booking.StartTime = bookingDate.Date.Add(bookingTime);
-        booking.EndTime = booking.StartTime.AddMinutes(service.DurationMinutes);
-        booking.Status = "Pending";
-        booking.IsPaid = false;
-        booking.PaidAmount = 0;
-        booking.CreatedAt = DateTime.UtcNow;
-        booking.CustomerNotified = false;
+        var startTime = bookingDate.Date.Add(bookingTime);
+        var endTime = startTime.AddMinutes(service.DurationMinutes);
 
-        if (booking.StartTime <= DateTime.Now)
+        if (startTime <= DateTime.Now)
         {
             errorMessage = "Välj en framtida tid.";
             return;
         }
 
-        if (booking.StartTime.TimeOfDay < dayHours.Open ||
-            booking.EndTime.TimeOfDay > dayHours.Close)
+        if (startTime.TimeOfDay < dayHours.Open ||
+            endTime.TimeOfDay > dayHours.Close)
         {
             errorMessage = $"Tiden måste vara inom öppettiderna: {dayHours.Open:hh\\:mm} - {dayHours.Close:hh\\:mm}.";
             return;
         }
 
-        var hasConflict = await Db.Bookings.AnyAsync(b =>
+        var hasConflict = await db.Bookings.AnyAsync(b =>
             b.BusinessId == business.Id &&
-            b.StaffMemberId == booking.StaffMemberId &&
+            b.StaffMemberId == staff.Id &&
             b.Status != "Cancelled" &&
-            booking.StartTime < b.EndTime &&
-            booking.EndTime > b.StartTime);
+            startTime < b.EndTime &&
+            endTime > b.StartTime);
 
         if (hasConflict)
         {
@@ -648,25 +644,56 @@ else
 
         isSubmitting = true;
 
-        booking.Business = business;
-        booking.Service = service;
-        booking.StaffMember = staff;
+        try
+        {
+            var newBooking = new Booking
+                {
+                    BusinessId = business.Id,
+                    ServiceId = service.Id,
+                    StaffMemberId = staff.Id,
+                    CustomerUserId = currentUser?.Id,
+                    CustomerName = booking.CustomerName,
+                    CustomerEmail = booking.CustomerEmail,
+                    CustomerPhone = booking.CustomerPhone,
+                    Notes = booking.Notes,
+                    StartTime = startTime,
+                    EndTime = endTime,
+                    Status = "Pending",
+                    IsPaid = false,
+                    PaidAmount = 0,
+                    CustomerNotified = false,
+                    CreatedAt = DateTime.UtcNow
+                };
 
-        Db.Bookings.Add(booking);
-        await Db.SaveChangesAsync();
+            db.Bookings.Add(newBooking);
+            await db.SaveChangesAsync();
 
-        var emailsSent = await SendBookingEmailsAsync(booking.Id);
+            var emailsSent = await SendBookingEmailsAsync(newBooking.Id);
 
-        successMessage = emailsSent
-            ? "Din bokningsförfrågan har skickats. Du får ett mail med detaljerna."
-            : "Bokningen skapades, men mailet kunde inte skickas just nu.";
+            successMessage = emailsSent
+                ? "Din bokningsförfrågan har skickats. Du får ett mail med detaljerna."
+                : "Bokningen skapades, men mailet kunde inte skickas just nu.";
 
-        ResetBookingForm();
-        PrefillCustomerFromAccount();
+            ResetBookingForm();
+            PrefillCustomerFromAccount();
 
-        await LoadAvailableTimesAsync();
+            await LoadAvailableTimesAsync();
+        }
+        catch (Exception ex)
+        {
+            var logger = LoggerFactory.CreateLogger("PublicBookingPage");
 
-        isSubmitting = false;
+            logger.LogError(
+                ex,
+                "Could not create public booking for business {BusinessId}",
+                business.Id);
+
+            errorMessage = "Bokningen kunde inte skapas just nu. Försök igen.";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
     }
 
     private async Task<bool> SendBookingEmailsAsync(int bookingId)

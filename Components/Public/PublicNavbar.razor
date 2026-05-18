@@ -72,7 +72,7 @@
 
             @if (isAuthenticated)
             {
-                <NavLink href="/Account/Manage" @onclick="CloseMenu">
+                <NavLink href="/Account/Profile" @onclick="CloseMenu">
                     Profil
                 </NavLink>
 
@@ -188,7 +188,10 @@
             $"--public-navbar-hover:{CssValue(business.NavbarLinkHoverColor, business.SecondaryColor)};",
             $"--public-navbar-mobile-bg:{CssValue(business.NavbarMobileBackgroundColor, business.NavbarBackgroundColor)};",
             $"--public-navbar-button-bg:{CssValue(business.NavbarButtonBackgroundColor, business.ButtonBackgroundColor)};",
-            $"--public-navbar-button-text:{CssValue(business.NavbarButtonTextColor, business.ButtonTextColor)};"
+            $"--public-navbar-button-text:{CssValue(business.NavbarButtonTextColor, business.ButtonTextColor)};",
+            $"--public-navbar-brand-title:{CssValue(business.NavbarBrandTitleColor, "#2A1B17")};",
+            $"--public-navbar-brand-subtitle:{CssValue(business.NavbarBrandSubtitleColor, "#6F4E45")};"
+
         );
     }
 

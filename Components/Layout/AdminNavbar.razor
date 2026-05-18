@@ -138,12 +138,19 @@
 
                 @if (permissions.CanManageSettings)
                 {
+
+                    <NavLink href="@($"/admin/businesses/{BusinessId}/legal")"
+                             @onclick="CloseMenu">
+                        Legal
+                    </NavLink>
+
                     <NavLink href="@($"/admin/businesses/edit/{BusinessId}")"
                              @onclick="CloseMenu">
 
                         Settings
 
                     </NavLink>
+
                 }
             }
 
