@@ -154,13 +154,13 @@ else
                             <div class="booking-card-main">
                                 <div class="booking-date-box">
                                     <strong>@booking.StartTime.ToString("dd")</strong>
-                                    <span>@booking.StartTime.ToString("MMM", new System.Globalization.CultureInfo("sv-SE"))</span>
+                                    <span>@booking.StartTime.ToString("MMM", SwedishCulture)</span>
                                 </div>
 
                                 <div class="booking-main-info">
                                     <div class="booking-card-title-row">
                                         <div>
-                                            <h2>@booking.CustomerName</h2>
+                                            <h2>@DisplayOrFallback(booking.CustomerName, "Ingen kund")</h2>
                                             <p>
                                                 @booking.StartTime.ToString("yyyy-MM-dd")
                                                 ·
@@ -183,6 +183,13 @@ else
 
                                     <div class="booking-detail-grid">
                                         <div>
+                                            <span>Kundinformation</span>
+                                            <strong>@DisplayOrFallback(booking.CustomerName, "Ingen kund")</strong>
+                                            <small>@DisplayOrFallback(booking.CustomerEmail, "Ingen e-post")</small>
+                                            <small>@DisplayOrFallback(booking.CustomerPhone, "Inget telefonnummer")</small>
+                                        </div>
+
+                                        <div>
                                             <span>Tjänst</span>
                                             <strong>@booking.Service.Name</strong>
                                             <small>
@@ -198,12 +205,6 @@ else
                                                     ? "Ingen specialisering"
                                                     : booking.StaffMember.Specialization)
                                             </small>
-                                        </div>
-
-                                        <div>
-                                            <span>Kontakt</span>
-                                            <strong>@GetContactMain(booking)</strong>
-                                            <small>@GetContactSub(booking)</small>
                                         </div>
 
                                         <div>
@@ -378,25 +379,10 @@ else
             : "booking-pill neutral";
     }
 
-    private static string GetContactMain(Booking booking)
+    private static string DisplayOrFallback(string? value, string fallback)
     {
-        if (!string.IsNullOrWhiteSpace(booking.CustomerEmail))
-            return booking.CustomerEmail;
-
-        if (!string.IsNullOrWhiteSpace(booking.CustomerPhone))
-            return booking.CustomerPhone;
-
-        return "Ingen kontakt";
-    }
-
-    private static string GetContactSub(Booking booking)
-    {
-        if (!string.IsNullOrWhiteSpace(booking.CustomerEmail) &&
-            !string.IsNullOrWhiteSpace(booking.CustomerPhone))
-        {
-            return booking.CustomerPhone;
-        }
-
-        return "Kunduppgifter";
+        return string.IsNullOrWhiteSpace(value)
+            ? fallback
+            : value;
     }
 }
