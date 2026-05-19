@@ -261,10 +261,18 @@ else
                                 <div class="public-alert success">@successMessage</div>
                             }
 
-                            <button class="public-submit-btn"
+                            <button class="public-submit-btn @(isSubmitting ? "is-loading" : "")"
                                     type="submit"
                                     disabled="@isSubmitting">
-                                @(isSubmitting ? "Skickar..." : "Skicka bokningsförfrågan")
+                                @if (isSubmitting)
+                                {
+                                    <span class="public-submit-spinner"></span>
+                                    <span>Skickar bokningen...</span>
+                                }
+                                else
+                                {
+                                    <span>Skicka bokningsförfrågan</span>
+                                }
                             </button>
                         </EditForm>
                     }
@@ -541,111 +549,111 @@ else
 
     private async Task CreateBookingAsync()
     {
-        await using var db = await DbFactory.CreateDbContextAsync();
+        if (isSubmitting)
+            return;
 
+        isSubmitting = true;
         errorMessage = null;
         successMessage = null;
 
-        if (business is null)
-        {
-            errorMessage = "Verksamheten hittades inte.";
-            return;
-        }
-
-        if (!business.IsActive || !business.AllowOnlineBookings)
-        {
-            errorMessage = "Verksamheten tar inte emot onlinebokningar just nu.";
-            return;
-        }
-
-        booking.CustomerName = booking.CustomerName?.Trim() ?? "";
-        booking.CustomerEmail = booking.CustomerEmail?.Trim();
-        booking.CustomerPhone = booking.CustomerPhone?.Trim();
-        booking.Notes = booking.Notes?.Trim();
-
-        if (currentUser is not null)
-        {
-            booking.CustomerUserId = currentUser.Id;
-        }
-
-        if (string.IsNullOrWhiteSpace(booking.CustomerName))
-        {
-            errorMessage = "Ange ditt namn.";
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(booking.CustomerEmail) &&
-            string.IsNullOrWhiteSpace(booking.CustomerPhone))
-        {
-            errorMessage = "Ange e-post eller telefonnummer.";
-            return;
-        }
-
-        var service = services.FirstOrDefault(s => s.Id == booking.ServiceId);
-
-        if (service is null)
-        {
-            errorMessage = "Välj en tjänst.";
-            return;
-        }
-
-        var staff = staffMembers.FirstOrDefault(s => s.Id == booking.StaffMemberId);
-
-        if (staff is null)
-        {
-            errorMessage = "Välj personal.";
-            return;
-        }
-
-        var dayHours = GetHoursForDate(bookingDate);
-
-        if (dayHours is null || !dayHours.IsOpen)
-        {
-            errorMessage = "Verksamheten är stängd detta datum.";
-            return;
-        }
-
-        var startTime = bookingDate.Date.Add(bookingTime);
-        var endTime = startTime.AddMinutes(service.DurationMinutes);
-
-        if (startTime <= DateTime.Now)
-        {
-            errorMessage = "Välj en framtida tid.";
-            return;
-        }
-
-        if (startTime.TimeOfDay < dayHours.Open ||
-            endTime.TimeOfDay > dayHours.Close)
-        {
-            errorMessage = $"Tiden måste vara inom öppettiderna: {dayHours.Open:hh\\:mm} - {dayHours.Close:hh\\:mm}.";
-            return;
-        }
-
-        var hasConflict = await db.Bookings.AnyAsync(b =>
-            b.BusinessId == business.Id &&
-            b.StaffMemberId == staff.Id &&
-            b.Status != "Cancelled" &&
-            startTime < b.EndTime &&
-            endTime > b.StartTime);
-
-        if (hasConflict)
-        {
-            errorMessage = "Tiden är redan bokad. Välj en annan tid.";
-            await LoadAvailableTimesAsync();
-            return;
-        }
-
-        if (!availableTimes.Contains(bookingTime))
-        {
-            errorMessage = "Välj en ledig tid från listan.";
-            await LoadAvailableTimesAsync();
-            return;
-        }
-
-        isSubmitting = true;
-
         try
         {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            if (business is null)
+            {
+                errorMessage = "Verksamheten hittades inte.";
+                return;
+            }
+
+            if (!business.IsActive || !business.AllowOnlineBookings)
+            {
+                errorMessage = "Verksamheten tar inte emot onlinebokningar just nu.";
+                return;
+            }
+
+            booking.CustomerName = booking.CustomerName?.Trim() ?? "";
+            booking.CustomerEmail = booking.CustomerEmail?.Trim();
+            booking.CustomerPhone = booking.CustomerPhone?.Trim();
+            booking.Notes = booking.Notes?.Trim();
+
+            if (currentUser is not null)
+                booking.CustomerUserId = currentUser.Id;
+
+            if (string.IsNullOrWhiteSpace(booking.CustomerName))
+            {
+                errorMessage = "Ange ditt namn.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(booking.CustomerEmail) &&
+                string.IsNullOrWhiteSpace(booking.CustomerPhone))
+            {
+                errorMessage = "Ange e-post eller telefonnummer.";
+                return;
+            }
+
+            var service = services.FirstOrDefault(s => s.Id == booking.ServiceId);
+
+            if (service is null)
+            {
+                errorMessage = "Välj en tjänst.";
+                return;
+            }
+
+            var staff = staffMembers.FirstOrDefault(s => s.Id == booking.StaffMemberId);
+
+            if (staff is null)
+            {
+                errorMessage = "Välj personal.";
+                return;
+            }
+
+            var dayHours = GetHoursForDate(bookingDate);
+
+            if (dayHours is null || !dayHours.IsOpen)
+            {
+                errorMessage = "Verksamheten är stängd detta datum.";
+                return;
+            }
+
+            var startTime = bookingDate.Date.Add(bookingTime);
+            var endTime = startTime.AddMinutes(service.DurationMinutes);
+
+            if (startTime <= DateTime.Now)
+            {
+                errorMessage = "Välj en framtida tid.";
+                return;
+            }
+
+            if (startTime.TimeOfDay < dayHours.Open ||
+                endTime.TimeOfDay > dayHours.Close)
+            {
+                errorMessage = $"Tiden måste vara inom öppettiderna: {dayHours.Open:hh\\:mm} - {dayHours.Close:hh\\:mm}.";
+                return;
+            }
+
+            var hasConflict = await db.Bookings.AnyAsync(b =>
+                b.BusinessId == business.Id &&
+                b.StaffMemberId == staff.Id &&
+                b.Status != "Cancelled" &&
+                startTime < b.EndTime &&
+                endTime > b.StartTime);
+
+            if (hasConflict)
+            {
+                errorMessage = "Tiden är redan bokad. Välj en annan tid.";
+                await LoadAvailableTimesAsync();
+                return;
+            }
+
+            if (!availableTimes.Contains(bookingTime))
+            {
+                errorMessage = "Välj en ledig tid från listan.";
+                await LoadAvailableTimesAsync();
+                return;
+            }
+
             var newBooking = new Booking
                 {
                     BusinessId = business.Id,
@@ -686,7 +694,7 @@ else
             logger.LogError(
                 ex,
                 "Could not create public booking for business {BusinessId}",
-                business.Id);
+                business?.Id);
 
             errorMessage = "Bokningen kunde inte skapas just nu. Försök igen.";
         }

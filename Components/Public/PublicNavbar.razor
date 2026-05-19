@@ -18,24 +18,23 @@
         <a class="public-navbar-brand" href="/" @onclick="CloseMenu">
             @if (!string.IsNullOrWhiteSpace(business?.LogoUrl))
             {
-                <img src="@business.LogoUrl" alt="@business.Name" />
+                <img class="public-navbar-brand-logo" src="@business.LogoUrl" alt="@business.Name" />
             }
             else
             {
-                <span class="public-navbar-logo">@GetInitials()</span>
+                <span class="public-navbar-brand-logo public-navbar-logo">
+                    @GetInitials()
+                </span>
             }
 
-            <span>
-                <strong>@DisplayOrFallback(business?.Name, "EasyBookings")</strong>
+            <span class="public-navbar-brand-text">
+                <small>
+                    @DisplayOrFallback(business?.BusinessType, "Bokning online")
+                </small>
 
-                @if (!string.IsNullOrWhiteSpace(business?.BusinessType))
-                {
-                    <small>@business.BusinessType</small>
-                }
-                else
-                {
-                    <small>Bokning online</small>
-                }
+                <strong>
+                    @DisplayOrFallback(business?.Name, "EasyBookings")
+                </strong>
             </span>
         </a>
 
@@ -60,7 +59,6 @@
             <NavLink href="/#booking" @onclick="CloseMenu">
                 Boka ny tid
             </NavLink>
-
 
             <NavLink href="/privacy" @onclick="CloseMenu">
                 Integritet
@@ -181,6 +179,10 @@
         if (business is null)
             return "";
 
+        var logoSize = business.NavbarLogoSize <= 0 ? 42 : business.NavbarLogoSize;
+        var navbarHeight = business.NavbarHeight <= 0 ? 64 : business.NavbarHeight;
+        var radius = business.NavbarBorderRadius <= 0 ? 22 : business.NavbarBorderRadius;
+
         return string.Join(" ",
             $"--public-navbar-bg:{CssValue(business.NavbarBackgroundColor, "#FFFFFF")};",
             $"--public-navbar-text:{CssValue(business.NavbarTextColor, "#151515")};",
@@ -190,8 +192,12 @@
             $"--public-navbar-button-bg:{CssValue(business.NavbarButtonBackgroundColor, business.ButtonBackgroundColor)};",
             $"--public-navbar-button-text:{CssValue(business.NavbarButtonTextColor, business.ButtonTextColor)};",
             $"--public-navbar-brand-title:{CssValue(business.NavbarBrandTitleColor, "#2A1B17")};",
-            $"--public-navbar-brand-subtitle:{CssValue(business.NavbarBrandSubtitleColor, "#6F4E45")};"
-
+            $"--public-navbar-brand-subtitle:{CssValue(business.NavbarBrandSubtitleColor, "#6F4E45")};",
+            $"--public-navbar-logo-bg:{CssValue(business.NavbarLogoBackgroundColor, "#151515")};",
+            $"--public-navbar-logo-text:{CssValue(business.NavbarLogoTextColor, "#FFFFFF")};",
+            $"--public-navbar-logo-size:{logoSize}px;",
+            $"--public-navbar-height:{navbarHeight}px;",
+            $"--public-navbar-radius:{radius}px;"
         );
     }
 
@@ -213,8 +219,10 @@
         return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 
-    private static string CssValue(string? value, string fallback)
+    private static string CssValue(string? value, string? fallback)
     {
-        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+        return string.IsNullOrWhiteSpace(value)
+            ? fallback ?? ""
+            : value;
     }
 }
