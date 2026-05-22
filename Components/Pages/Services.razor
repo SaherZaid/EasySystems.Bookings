@@ -24,16 +24,35 @@ else
 {
     <div class="public-booking-page" style="@GetPublicThemeStyle()">
 
-        <section class="services-hero" style="@GetHeroStyle()">
-            <div class="services-hero-content">
-                <span class="public-booking-pill">Tjänster</span>
+        <section class="public-booking-hero" style="@GetHeroStyle()">
+            <div class="public-booking-hero-content">
+                @if (!string.IsNullOrWhiteSpace(business.LogoUrl))
+                {
+                    <img class="public-booking-logo" src="@business.LogoUrl" alt="@business.Name" />
+                }
+                else
+                {
+                    <div class="public-booking-logo-fallback">@GetInitials()</div>
+                }
+
+                <span class="public-booking-pill">
+                    @DisplayOrFallback(business.BusinessType, "Tjänster")
+                </span>
+
                 <h1>Våra tjänster</h1>
-                <p>@DisplayOrFallback(business.Description, "Välj en tjänst och boka en tid som passar dig.")</p>
+
+                <p class="public-booking-tagline">
+                    @DisplayOrFallback(business.Description, "Välj en tjänst och boka en tid som passar dig.")
+                </p>
+
+                <div class="public-booking-hero-actions">
+                    <a href="/booking" class="public-primary-link">Boka ny tid</a>
+                    <a href="/hours" class="public-booking-light-btn">Öppettider</a>
+                </div>
             </div>
         </section>
 
         <main class="services-page-shell">
-
             @if (!services.Any())
             {
                 <div class="public-empty-state">
@@ -61,14 +80,11 @@ else
                                 <strong>@service.Price.ToString("0.00") kr</strong>
                             </div>
 
-                            <a class="services-page-btn" href="/booking">
-                                Boka ny tid
-                            </a>
+                            <a class="services-page-btn" href="/booking">Boka ny tid</a>
                         </article>
                     }
                 </section>
             }
-
         </main>
 
         <BusinessFooter Business="business" />
@@ -98,6 +114,19 @@ else
             .ToListAsync();
     }
 
+    private string GetInitials()
+    {
+        if (business is null || string.IsNullOrWhiteSpace(business.Name))
+            return "EB";
+
+        var parts = business.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+
+        return business.Name[0].ToString().ToUpper();
+    }
+
     private string GetPublicThemeStyle()
     {
         if (business is null)
@@ -105,6 +134,7 @@ else
 
         return string.Join(" ",
             $"--public-page-bg:{CssValue(business.PageBackgroundColor, "#F8F4ED")};",
+            $"--public-section-bg:{CssValue(business.SectionBackgroundColor, "#FFFFFF")};",
             $"--public-card-bg:{CssValue(business.CardBackgroundColor, "#FFFFFF")};",
             $"--public-service-card-bg:{CssValue(business.ServiceCardBackgroundColor, "#FFFFFF")};",
             $"--public-heading:{CssValue(business.HeadingTextColor, "#151515")};",
@@ -126,22 +156,16 @@ else
         var heroText = CssValue(business.HeroTextColor, "#FFFFFF");
 
         if (string.IsNullOrWhiteSpace(business.CoverImageUrl))
-        {
             return $"background-image:linear-gradient(135deg,{CssValue(business.PrimaryColor, "#151515")},{CssValue(business.SecondaryColor, "#C9A46A")}); color:{heroText};";
-        }
 
         var overlay = CssValue(business.HeroOverlayColor, "rgba(0,0,0,.55)");
 
         return $"background-image:linear-gradient({overlay},{overlay}), url('{business.CoverImageUrl}'); background-position:center; background-size:cover; color:{heroText};";
     }
 
-    private static string DisplayOrFallback(string? value, string fallback)
-    {
-        return string.IsNullOrWhiteSpace(value) ? fallback : value;
-    }
+    private static string DisplayOrFallback(string? value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value;
 
-    private static string CssValue(string? value, string fallback)
-    {
-        return string.IsNullOrWhiteSpace(value) ? fallback : value;
-    }
+    private static string CssValue(string? value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value;
 }

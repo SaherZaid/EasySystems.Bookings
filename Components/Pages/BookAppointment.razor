@@ -1,0 +1,897 @@
+﻿@page "/booking"
+@rendermode InteractiveServer
+
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using EasySystems.Bookings.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using System.Globalization
+
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject IBookingEmailSender BookingEmailSender
+@inject ILoggerFactory LoggerFactory
+
+<PageTitle>@pageTitle</PageTitle>
+
+<PublicNavbar />
+
+@if (!isLoading && business is null)
+{
+    <div class="public-booking-page">
+        <div class="public-empty-state">
+            <h1>Ingen bokningssida hittades</h1>
+            <p>Verksamheten är inte aktiv eller tar inte emot onlinebokningar just nu.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="public-booking-page" style="@GetPublicThemeStyle()">
+
+        <section class="public-booking-hero" style="@GetHeroStyle()">
+            <div class="public-booking-hero-content">
+                @if (isLoading)
+                {
+                    <div class="public-booking-logo-fallback">EB</div>
+                    <span class="public-booking-pill">Bokning online</span>
+                    <h1>Boka tid</h1>
+                    <p class="public-booking-tagline">Laddar bokningssidan...</p>
+                }
+                else if (business is not null)
+                {
+                    @if (!string.IsNullOrWhiteSpace(business.LogoUrl))
+                    {
+                        <img class="public-booking-logo" src="@business.LogoUrl" alt="@business.Name" />
+                    }
+                    else
+                    {
+                        <div class="public-booking-logo-fallback">@GetInitials()</div>
+                    }
+
+                    <span class="public-booking-pill">
+                        @DisplayOrFallback(business.BusinessType, "Bokning online")
+                    </span>
+
+                    <h1>Boka ny tid</h1>
+
+                    <p class="public-booking-tagline">
+                        @DisplayOrFallback(business.Tagline, business.Description ?? "Välj tjänst, personal och en tid som passar dig.")
+                    </p>
+
+                    <div class="public-booking-hero-actions">
+                        <a href="/services" class="public-booking-light-btn">Tjänster</a>
+                        <a href="/hours" class="public-booking-light-btn">Öppettider</a>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <main class="booking-page-shell">
+
+            <section class="booking-page-layout">
+
+                <div class="public-booking-card">
+                    <div class="public-section-header">
+                        <p>Bokning</p>
+                        <h2>Välj tjänst, personal och tid</h2>
+
+                        @if (isLoading)
+                        {
+                            <span class="public-account-badge">Laddar...</span>
+                        }
+                        else if (currentUser is not null)
+                        {
+                            <span class="public-account-badge">
+                                Inloggad som @DisplayUserName()
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="public-account-badge">
+                                Du kan boka utan konto
+                            </span>
+                        }
+                    </div>
+
+                    @if (isLoading)
+                    {
+                        <div class="public-alert neutral">
+                            Laddar bokningsformuläret...
+                        </div>
+                    }
+                    else if (!services.Any())
+                    {
+                        <div class="public-alert warning">
+                            Den här verksamheten har inga bokningsbara tjänster just nu.
+                        </div>
+                    }
+                    else if (!staffMembers.Any())
+                    {
+                        <div class="public-alert warning">
+                            Det finns ingen personal tillgänglig för onlinebokning just nu.
+                        </div>
+                    }
+                    else
+                    {
+                        <EditForm Model="booking" OnValidSubmit="CreateBookingAsync">
+                            <DataAnnotationsValidator />
+
+                            <div class="public-form-grid">
+                                <div class="public-field">
+                                    <label>Ditt namn</label>
+                                    <InputText class="public-input" @bind-Value="booking.CustomerName" />
+                                </div>
+
+                                <div class="public-field">
+                                    <label>E-post</label>
+                                    <InputText class="public-input" @bind-Value="booking.CustomerEmail" />
+                                </div>
+
+                                <div class="public-field">
+                                    <label>Telefon</label>
+                                    <InputText class="public-input" @bind-Value="booking.CustomerPhone" />
+                                </div>
+
+                                <div class="public-field">
+                                    <label>Tjänst</label>
+                                    <InputSelect class="public-input"
+                                                 @bind-Value="booking.ServiceId"
+                                                 @bind-Value:after="OnBookingSelectionChanged">
+                                        <option value="0">Välj tjänst</option>
+
+                                        @foreach (var service in services)
+                                        {
+                                            <option value="@service.Id">
+                                                @service.Name - @service.DurationMinutes min - @service.Price.ToString("0.00") kr
+                                            </option>
+                                        }
+                                    </InputSelect>
+                                </div>
+
+                                <div class="public-field">
+                                    <label>Personal</label>
+                                    <InputSelect class="public-input"
+                                                 @bind-Value="booking.StaffMemberId"
+                                                 @bind-Value:after="OnBookingSelectionChanged">
+                                        <option value="0">Välj personal</option>
+
+                                        @foreach (var staff in staffMembers)
+                                        {
+                                            <option value="@staff.Id">
+                                                @staff.FullName
+                                                @if (!string.IsNullOrWhiteSpace(staff.Specialization))
+                                                {
+                                                    @($" - {staff.Specialization}")
+                                                }
+                                            </option>
+                                        }
+                                    </InputSelect>
+                                </div>
+
+                                <div class="public-field">
+                                    <label>Datum</label>
+                                    <InputDate class="public-input"
+                                               @bind-Value="bookingDate"
+                                               @bind-Value:after="OnBookingSelectionChanged" />
+                                </div>
+                            </div>
+
+                            <div class="public-time-picker">
+                                <div class="public-time-picker-head">
+                                    <div>
+                                        <p>Lediga tider</p>
+                                        <h3>@bookingDate.ToString("dddd d MMMM", SwedishCulture)</h3>
+                                    </div>
+
+                                    <span>@GetSelectedDayHoursLabel()</span>
+                                </div>
+
+                                @if (!SelectedDayIsOpen)
+                                {
+                                    <div class="public-alert warning">
+                                        Verksamheten är stängd denna dag. Välj ett annat datum.
+                                    </div>
+                                }
+                                else if (booking.ServiceId == 0 || booking.StaffMemberId == 0)
+                                {
+                                    <div class="public-alert neutral">
+                                        Välj tjänst och personal för att se lediga tider.
+                                    </div>
+                                }
+                                else if (!availableTimes.Any())
+                                {
+                                    <div class="public-alert warning">
+                                        Inga lediga tider finns för valt datum.
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="public-time-grid">
+                                        @foreach (var time in availableTimes)
+                                        {
+                                            <button type="button"
+                                                    class="public-time-btn @(bookingTime == time ? "active" : "")"
+                                                    @onclick="() => SelectTime(time)">
+                                                @time.ToString(@"hh\:mm")
+                                            </button>
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="public-field">
+                                <label>Meddelande</label>
+                                <InputTextArea class="public-input public-textarea"
+                                               rows="4"
+                                               @bind-Value="booking.Notes" />
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(errorMessage))
+                            {
+                                <div class="public-alert error">@errorMessage</div>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(successMessage))
+                            {
+                                <div class="public-alert success">@successMessage</div>
+                            }
+
+                            <button class="public-submit-btn @(isSubmitting ? "is-loading" : "")"
+                                    type="submit"
+                                    disabled="@isSubmitting">
+                                @if (isSubmitting)
+                                {
+                                    <span class="public-submit-spinner"></span>
+                                    <span>Skickar bokningen...</span>
+                                }
+                                else
+                                {
+                                    <span>Skicka bokningsförfrågan</span>
+                                }
+                            </button>
+                        </EditForm>
+                    }
+                </div>
+
+                <aside class="booking-page-side">
+
+                    <section class="public-side-card">
+                        <h2>Sammanfattning</h2>
+
+                        <div class="booking-summary-list">
+                            <div>
+                                <span>Tjänst</span>
+                                <strong>@GetSelectedServiceText()</strong>
+                            </div>
+
+                            <div>
+                                <span>Personal</span>
+                                <strong>@GetSelectedStaffText()</strong>
+                            </div>
+
+                            <div>
+                                <span>Datum</span>
+                                <strong>@bookingDate.ToString("yyyy-MM-dd")</strong>
+                            </div>
+
+                            <div>
+                                <span>Tid</span>
+                                <strong>@(bookingTime == TimeSpan.Zero ? "Välj tid" : bookingTime.ToString(@"hh\:mm"))</strong>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="public-side-card">
+                        <h2>Öppettider</h2>
+
+                        <div class="public-hours-list">
+                            @foreach (var day in weeklyHours)
+                            {
+                                <div class="public-hours-row @(day.Day == DateTime.Today.DayOfWeek ? "today" : "")">
+                                    <span>@day.Label</span>
+                                    <strong>@(day.IsOpen ? $"{day.Open:hh\\:mm} - {day.Close:hh\\:mm}" : "Stängt")</strong>
+                                </div>
+                            }
+                        </div>
+                    </section>
+
+                    <section class="public-side-card">
+                        <h2>Kontakt</h2>
+
+                        <div class="booking-summary-list">
+                            <div>
+                                <span>Telefon</span>
+                                <strong>@DisplayOrFallback(business?.Phone, "Saknas")</strong>
+                            </div>
+
+                            <div>
+                                <span>E-post</span>
+                                <strong>@DisplayOrFallback(business?.Email, "Saknas")</strong>
+                            </div>
+
+                            <div>
+                                <span>Adress</span>
+                                <strong>@GetAddressText()</strong>
+                            </div>
+                        </div>
+                    </section>
+
+                </aside>
+
+            </section>
+
+        </main>
+
+        <BusinessFooter Business="business" />
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private bool isSubmitting;
+
+    private string pageTitle = "Boka tid | EasyBookings";
+
+    private Business? business;
+    private ApplicationUser? currentUser;
+
+    private List<Service> services = [];
+    private List<StaffMember> staffMembers = [];
+    private List<EasySystems.Bookings.Data.Entities.Booking> existingBookings = [];
+    private List<TimeSpan> availableTimes = [];
+    private List<PublicDayHoursModel> weeklyHours = [];
+
+    private EasySystems.Bookings.Data.Entities.Booking booking = new()
+        {
+            Status = "Pending"
+        };
+
+    private DateTime bookingDate = DateTime.Today;
+    private TimeSpan bookingTime;
+
+    private string? errorMessage;
+    private string? successMessage;
+
+    private static readonly CultureInfo SwedishCulture = new("sv-SE");
+
+    private bool SelectedDayIsOpen =>
+        GetHoursForDate(bookingDate)?.IsOpen == true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        successMessage = null;
+
+        await LoadCurrentUserAsync();
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        business = await db.Businesses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(b => b.IsActive && b.AllowOnlineBookings);
+
+        if (business is null)
+        {
+            pageTitle = "Bokningssida saknas";
+            isLoading = false;
+            return;
+        }
+
+        pageTitle = $"Boka tid | {business.Name}";
+
+        LoadWeeklyHours();
+
+        services = await db.Services
+            .AsNoTracking()
+            .Where(s => s.BusinessId == business.Id && s.IsActive)
+            .OrderBy(s => s.SortOrder)
+            .ThenBy(s => s.Name)
+            .ToListAsync();
+
+        staffMembers = await db.StaffMembers
+            .AsNoTracking()
+            .Where(s => s.BusinessId == business.Id && s.IsActive && s.AllowOnlineBookings)
+            .OrderBy(s => s.SortOrder)
+            .ThenBy(s => s.FullName)
+            .ToListAsync();
+
+        ResetBookingForm();
+        PrefillCustomerFromAccount();
+
+        await LoadAvailableTimesAsync();
+
+        isLoading = false;
+    }
+
+    private async Task LoadCurrentUserAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var principal = authState.User;
+
+        if (principal.Identity?.IsAuthenticated == true)
+        {
+            currentUser = await UserManager.GetUserAsync(principal);
+        }
+    }
+
+    private void ResetBookingForm()
+    {
+        if (business is null)
+            return;
+
+        booking = new EasySystems.Bookings.Data.Entities.Booking
+            {
+                BusinessId = business.Id,
+                Status = "Pending"
+            };
+
+        bookingTime = TimeSpan.Zero;
+    }
+
+    private void PrefillCustomerFromAccount()
+    {
+        if (currentUser is null)
+            return;
+
+        var fullName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
+
+        booking.CustomerUserId = currentUser.Id;
+        booking.CustomerName = string.IsNullOrWhiteSpace(fullName)
+            ? currentUser.Email ?? ""
+            : fullName;
+
+        booking.CustomerEmail = currentUser.Email ?? "";
+        booking.CustomerPhone = currentUser.PhoneNumber ?? "";
+    }
+
+    private async Task OnBookingSelectionChanged()
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        await LoadAvailableTimesAsync();
+    }
+
+    private async Task LoadAvailableTimesAsync()
+    {
+        availableTimes.Clear();
+
+        if (business is null)
+            return;
+
+        var dayHours = GetHoursForDate(bookingDate);
+
+        if (dayHours is null || !dayHours.IsOpen)
+            return;
+
+        var service = services.FirstOrDefault(s => s.Id == booking.ServiceId);
+
+        if (service is null || booking.StaffMemberId == 0)
+            return;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        var dayStart = bookingDate.Date;
+        var dayEnd = dayStart.AddDays(1);
+
+        existingBookings = await db.Bookings
+            .AsNoTracking()
+            .Where(b =>
+                b.BusinessId == business.Id &&
+                b.StaffMemberId == booking.StaffMemberId &&
+                b.Status != "Cancelled" &&
+                b.StartTime >= dayStart &&
+                b.StartTime < dayEnd)
+            .ToListAsync();
+
+        var current = dayHours.Open;
+        var lastStart = dayHours.Close.Subtract(TimeSpan.FromMinutes(service.DurationMinutes));
+
+        while (current <= lastStart)
+        {
+            var start = bookingDate.Date.Add(current);
+            var end = start.AddMinutes(service.DurationMinutes);
+
+            var isFuture = start > DateTime.Now;
+
+            var hasConflict = existingBookings.Any(b =>
+                start < b.EndTime &&
+                end > b.StartTime);
+
+            if (isFuture && !hasConflict)
+                availableTimes.Add(current);
+
+            current = current.Add(TimeSpan.FromMinutes(business.BookingIntervalMinutes));
+        }
+
+        if (availableTimes.Any() && !availableTimes.Contains(bookingTime))
+            bookingTime = availableTimes.First();
+
+        if (!availableTimes.Any())
+            bookingTime = TimeSpan.Zero;
+    }
+
+    private void SelectTime(TimeSpan time)
+    {
+        bookingTime = time;
+    }
+
+    private async Task CreateBookingAsync()
+    {
+        if (isSubmitting)
+            return;
+
+        isSubmitting = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            if (business is null)
+            {
+                errorMessage = "Verksamheten hittades inte.";
+                return;
+            }
+
+            if (!business.IsActive || !business.AllowOnlineBookings)
+            {
+                errorMessage = "Verksamheten tar inte emot onlinebokningar just nu.";
+                return;
+            }
+
+            booking.CustomerName = booking.CustomerName?.Trim() ?? "";
+            booking.CustomerEmail = booking.CustomerEmail?.Trim();
+            booking.CustomerPhone = booking.CustomerPhone?.Trim();
+            booking.Notes = booking.Notes?.Trim();
+
+            if (currentUser is not null)
+                booking.CustomerUserId = currentUser.Id;
+
+            if (string.IsNullOrWhiteSpace(booking.CustomerName))
+            {
+                errorMessage = "Ange ditt namn.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(booking.CustomerEmail) &&
+                string.IsNullOrWhiteSpace(booking.CustomerPhone))
+            {
+                errorMessage = "Ange e-post eller telefonnummer.";
+                return;
+            }
+
+            var service = services.FirstOrDefault(s => s.Id == booking.ServiceId);
+
+            if (service is null)
+            {
+                errorMessage = "Välj en tjänst.";
+                return;
+            }
+
+            var staff = staffMembers.FirstOrDefault(s => s.Id == booking.StaffMemberId);
+
+            if (staff is null)
+            {
+                errorMessage = "Välj personal.";
+                return;
+            }
+
+            var dayHours = GetHoursForDate(bookingDate);
+
+            if (dayHours is null || !dayHours.IsOpen)
+            {
+                errorMessage = "Verksamheten är stängd detta datum.";
+                return;
+            }
+
+            if (bookingTime == TimeSpan.Zero)
+            {
+                errorMessage = "Välj en ledig tid.";
+                return;
+            }
+
+            var startTime = bookingDate.Date.Add(bookingTime);
+            var endTime = startTime.AddMinutes(service.DurationMinutes);
+
+            if (startTime <= DateTime.Now)
+            {
+                errorMessage = "Välj en framtida tid.";
+                return;
+            }
+
+            if (startTime.TimeOfDay < dayHours.Open ||
+                endTime.TimeOfDay > dayHours.Close)
+            {
+                errorMessage = $"Tiden måste vara inom öppettiderna: {dayHours.Open:hh\\:mm} - {dayHours.Close:hh\\:mm}.";
+                return;
+            }
+
+            var hasConflict = await db.Bookings.AnyAsync(b =>
+                b.BusinessId == business.Id &&
+                b.StaffMemberId == staff.Id &&
+                b.Status != "Cancelled" &&
+                startTime < b.EndTime &&
+                endTime > b.StartTime);
+
+            if (hasConflict)
+            {
+                errorMessage = "Tiden är redan bokad. Välj en annan tid.";
+                await LoadAvailableTimesAsync();
+                return;
+            }
+
+            if (!availableTimes.Contains(bookingTime))
+            {
+                errorMessage = "Välj en ledig tid från listan.";
+                await LoadAvailableTimesAsync();
+                return;
+            }
+
+            var newBooking = new EasySystems.Bookings.Data.Entities.Booking
+                {
+                    BusinessId = business.Id,
+                    ServiceId = service.Id,
+                    StaffMemberId = staff.Id,
+                    CustomerUserId = currentUser?.Id,
+                    CustomerName = booking.CustomerName,
+                    CustomerEmail = booking.CustomerEmail,
+                    CustomerPhone = booking.CustomerPhone,
+                    Notes = booking.Notes,
+                    StartTime = startTime,
+                    EndTime = endTime,
+                    Status = "Pending",
+                    IsPaid = false,
+                    PaidAmount = 0,
+                    CustomerNotified = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+            db.Bookings.Add(newBooking);
+            await db.SaveChangesAsync();
+
+            var emailsSent = await SendBookingEmailsAsync(newBooking.Id);
+
+            successMessage = emailsSent
+                ? "Din bokningsförfrågan har skickats. Du får ett mail med detaljerna."
+                : "Bokningen skapades, men mailet kunde inte skickas just nu.";
+
+            ResetBookingForm();
+            PrefillCustomerFromAccount();
+
+            await LoadAvailableTimesAsync();
+        }
+        catch (Exception ex)
+        {
+            var logger = LoggerFactory.CreateLogger("BookingPage");
+
+            logger.LogError(
+                ex,
+                "Could not create booking for business {BusinessId}",
+                business?.Id);
+
+            errorMessage = "Bokningen kunde inte skapas just nu. Försök igen.";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private async Task<bool> SendBookingEmailsAsync(int bookingId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        var savedBooking = await db.Bookings
+            .AsNoTracking()
+            .Include(b => b.Business)
+            .Include(b => b.Service)
+            .Include(b => b.StaffMember)
+            .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+        if (savedBooking is null)
+            return false;
+
+        try
+        {
+            await BookingEmailSender.SendBookingCreatedToCustomerAsync(savedBooking);
+            await BookingEmailSender.SendBookingCreatedToBusinessAsync(savedBooking);
+
+            var trackedBooking = await db.Bookings.FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (trackedBooking is not null)
+            {
+                trackedBooking.CustomerNotified = true;
+                trackedBooking.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            var logger = LoggerFactory.CreateLogger("BookingPage");
+            logger.LogError(ex, "Could not send booking emails for booking {BookingId}", bookingId);
+            return false;
+        }
+    }
+
+    private void LoadWeeklyHours()
+    {
+        if (business is null)
+            return;
+
+        weeklyHours =
+        [
+            new("Måndag", DayOfWeek.Monday, business.MondayIsOpen, business.MondayOpeningTime, business.MondayClosingTime),
+        new("Tisdag", DayOfWeek.Tuesday, business.TuesdayIsOpen, business.TuesdayOpeningTime, business.TuesdayClosingTime),
+        new("Onsdag", DayOfWeek.Wednesday, business.WednesdayIsOpen, business.WednesdayOpeningTime, business.WednesdayClosingTime),
+        new("Torsdag", DayOfWeek.Thursday, business.ThursdayIsOpen, business.ThursdayOpeningTime, business.ThursdayClosingTime),
+        new("Fredag", DayOfWeek.Friday, business.FridayIsOpen, business.FridayOpeningTime, business.FridayClosingTime),
+        new("Lördag", DayOfWeek.Saturday, business.SaturdayIsOpen, business.SaturdayOpeningTime, business.SaturdayClosingTime),
+        new("Söndag", DayOfWeek.Sunday, business.SundayIsOpen, business.SundayOpeningTime, business.SundayClosingTime)
+        ];
+    }
+
+    private PublicDayHoursModel? GetHoursForDate(DateTime date)
+    {
+        return weeklyHours.FirstOrDefault(x => x.Day == date.DayOfWeek);
+    }
+
+    private string GetSelectedDayHoursLabel()
+    {
+        var hours = GetHoursForDate(bookingDate);
+
+        if (hours is null || !hours.IsOpen)
+            return "Stängt";
+
+        return $"{hours.Open:hh\\:mm} - {hours.Close:hh\\:mm}";
+    }
+
+    private string GetSelectedServiceText()
+    {
+        var service = services.FirstOrDefault(x => x.Id == booking.ServiceId);
+
+        if (service is null)
+            return "Välj tjänst";
+
+        return $"{service.Name} · {service.DurationMinutes} min · {service.Price:0.00} kr";
+    }
+
+    private string GetSelectedStaffText()
+    {
+        var staff = staffMembers.FirstOrDefault(x => x.Id == booking.StaffMemberId);
+
+        if (staff is null)
+            return "Välj personal";
+
+        return staff.FullName;
+    }
+
+    private string GetAddressText()
+    {
+        if (business is null)
+            return "Saknas";
+
+        if (!string.IsNullOrWhiteSpace(business.Address) &&
+            !string.IsNullOrWhiteSpace(business.City))
+            return $"{business.Address}, {business.City}";
+
+        return DisplayOrFallback(business.Address, DisplayOrFallback(business.City, "Saknas"));
+    }
+
+    private string DisplayUserName()
+    {
+        if (currentUser is null)
+            return "";
+
+        var fullName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
+
+        return string.IsNullOrWhiteSpace(fullName)
+            ? currentUser.Email ?? "konto"
+            : fullName;
+    }
+
+    private string GetInitials()
+    {
+        if (business is null || string.IsNullOrWhiteSpace(business.Name))
+            return "EB";
+
+        var parts = business.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+
+        return business.Name[0].ToString().ToUpper();
+    }
+
+    private string GetPublicThemeStyle()
+    {
+        if (business is null)
+            return "";
+
+        return string.Join(" ",
+            $"--public-page-bg:{CssValue(business.PageBackgroundColor, "#F8F4ED")};",
+            $"--public-section-bg:{CssValue(business.SectionBackgroundColor, "#FFFFFF")};",
+            $"--public-card-bg:{CssValue(business.CardBackgroundColor, "#FFFFFF")};",
+            $"--public-service-card-bg:{CssValue(business.ServiceCardBackgroundColor, "#FFFFFF")};",
+            $"--public-staff-card-bg:{CssValue(business.StaffCardBackgroundColor, "#FFFFFF")};",
+            $"--public-booking-panel-bg:{CssValue(business.BookingPanelBackgroundColor, "#FFFFFF")};",
+            $"--public-heading:{CssValue(business.HeadingTextColor, "#151515")};",
+            $"--public-body:{CssValue(business.BodyTextColor, "#4B5563")};",
+            $"--public-muted:{CssValue(business.MutedTextColor, "#7A6F63")};",
+            $"--public-primary:{CssValue(business.PrimaryColor, "#151515")};",
+            $"--public-secondary:{CssValue(business.SecondaryColor, "#C9A46A")};",
+            $"--public-button-bg:{CssValue(business.ButtonBackgroundColor, "#151515")};",
+            $"--public-button-text:{CssValue(business.ButtonTextColor, "#FFFFFF")};",
+            $"--public-secondary-button-bg:{CssValue(business.SecondaryButtonBackgroundColor, "#FFFFFF")};",
+            $"--public-secondary-button-text:{CssValue(business.SecondaryButtonTextColor, "#151515")};",
+            $"--public-price:{CssValue(business.PriceTextColor, "#151515")};",
+            $"--public-success:{CssValue(business.SuccessColor, "#087443")};",
+            $"--public-warning:{CssValue(business.WarningColor, "#B45309")};",
+            $"--public-danger:{CssValue(business.DangerColor, "#B42318")};",
+            $"--public-input-bg:{CssValue(business.InputBackgroundColor, "#FFFFFF")};",
+            $"--public-input-text:{CssValue(business.InputTextColor, "#151515")};",
+            $"--public-input-border:{CssValue(business.InputBorderColor, "#E5E7EB")};",
+            $"--public-input-focus:{CssValue(business.InputFocusColor, "#C9A46A")};",
+            $"--public-label:{CssValue(business.LabelTextColor, "#374151")};",
+            $"--public-time-bg:{CssValue(business.TimeSlotBackgroundColor, "#FFFFFF")};",
+            $"--public-time-text:{CssValue(business.TimeSlotTextColor, "#151515")};",
+            $"--public-time-active-bg:{CssValue(business.TimeSlotActiveBackgroundColor, "#151515")};",
+            $"--public-time-active-text:{CssValue(business.TimeSlotActiveTextColor, "#FFFFFF")};",
+            $"background-color:{CssValue(business.PageBackgroundColor, "#F8F4ED")};",
+            $"color:{CssValue(business.BodyTextColor, "#4B5563")};"
+        );
+    }
+
+    private string GetHeroStyle()
+    {
+        if (business is null)
+            return "background-image:linear-gradient(135deg,#151515,#C9A46A); color:#FFFFFF;";
+
+        var heroText = CssValue(business.HeroTextColor, "#FFFFFF");
+
+        if (string.IsNullOrWhiteSpace(business.CoverImageUrl))
+        {
+            return $"background-image:linear-gradient(135deg,{CssValue(business.PrimaryColor, "#151515")},{CssValue(business.SecondaryColor, "#C9A46A")}); color:{heroText};";
+        }
+
+        var overlay = CssValue(business.HeroOverlayColor, "rgba(0,0,0,.55)");
+
+        return $"background-image:linear-gradient({overlay},{overlay}), url('{business.CoverImageUrl}'); background-position:center; background-size:cover; color:{heroText};";
+    }
+
+    private static string DisplayOrFallback(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    private static string CssValue(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    private sealed class PublicDayHoursModel
+    {
+        public PublicDayHoursModel(string label, DayOfWeek day, bool isOpen, TimeSpan open, TimeSpan close)
+        {
+            Label = label;
+            Day = day;
+            IsOpen = isOpen;
+            Open = open;
+            Close = close;
+        }
+
+        public string Label { get; }
+        public DayOfWeek Day { get; }
+        public bool IsOpen { get; }
+        public TimeSpan Open { get; }
+        public TimeSpan Close { get; }
+    }
+}
