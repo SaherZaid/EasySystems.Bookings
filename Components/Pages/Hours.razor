@@ -1,0 +1,244 @@
+﻿@page "/hours"
+@rendermode InteractiveServer
+
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.EntityFrameworkCore
+
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+
+<PageTitle>Öppettider & kontakt | EasySystems</PageTitle>
+
+<PublicNavbar />
+
+@if (isLoading)
+{
+    <div class="public-booking-page">
+        <div class="public-loading">Laddar...</div>
+    </div>
+}
+else if (business is null)
+{
+    <div class="public-booking-page">
+        <div class="public-empty-state">
+            <h1>Information saknas</h1>
+            <p>Verksamheten är inte aktiv just nu.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="public-booking-page" style="@GetThemeStyle()">
+
+        <section class="public-simple-hero compact" style="@GetHeroStyle()">
+            <div>
+                <p>@DisplayOrFallback(business.BusinessType, "Onlinebokning")</p>
+                <h1>Öppettider & kontakt</h1>
+                <span>@business.Name</span>
+            </div>
+        </section>
+
+        <main class="public-booking-shell contact-hours-page">
+
+            <section class="public-info-grid contact-info-grid">
+                <div class="public-info-card">
+                    <span>Telefon</span>
+                    <strong>@DisplayOrFallback(business.Phone, "Telefon saknas")</strong>
+
+                    @if (!string.IsNullOrWhiteSpace(business.Phone))
+                    {
+                        <p><a href="tel:@business.Phone">Ring verksamheten</a></p>
+                    }
+                </div>
+
+                <div class="public-info-card">
+                    <span>E-post</span>
+                    <strong>@DisplayOrFallback(business.Email, "E-post saknas")</strong>
+
+                    @if (!string.IsNullOrWhiteSpace(business.Email))
+                    {
+                        <p><a href="mailto:@business.Email">Skicka e-post</a></p>
+                    }
+                </div>
+
+                <div class="public-info-card">
+                    <span>Adress</span>
+                    <strong>@DisplayOrFallback(business.City, "Stad saknas")</strong>
+                    <p>@DisplayOrFallback(business.Address, "Adress saknas")</p>
+                </div>
+            </section>
+
+            <section class="contact-hours-layout">
+
+                <div class="public-side-card">
+                    <div class="public-section-header">
+                        <p>Veckoschema</p>
+                        <h2>Öppettider</h2>
+                    </div>
+
+                    <div class="public-hours-list">
+                        @foreach (var day in weeklyHours)
+                        {
+                            <div class="public-hours-row @(day.Day == DateTime.Today.DayOfWeek ? "today" : "")">
+                                <span>@day.Label</span>
+                                <strong>@(day.IsOpen ? $"{day.Open:hh\\:mm} - {day.Close:hh\\:mm}" : "Stängt")</strong>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <aside class="public-side-card">
+                    <div class="public-section-header">
+                        <p>Kontakt</p>
+                        <h2>Hitta oss</h2>
+                    </div>
+
+                    <div class="contact-details-list">
+                        <div>
+                            <span>Verksamhet</span>
+                            <strong>@business.Name</strong>
+                        </div>
+
+                        <div>
+                            <span>Typ</span>
+                            <strong>@DisplayOrFallback(business.BusinessType, "Bokningsverksamhet")</strong>
+                        </div>
+
+                        <div>
+                            <span>Adress</span>
+                            <strong>@DisplayAddress()</strong>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(business.WebsiteUrl))
+                        {
+                            <a href="@business.WebsiteUrl" target="_blank" rel="noopener noreferrer">
+                                Webbplats
+                            </a>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(business.InstagramUrl))
+                        {
+                            <a href="@business.InstagramUrl" target="_blank" rel="noopener noreferrer">
+                                Instagram
+                            </a>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(business.FacebookUrl))
+                        {
+                            <a href="@business.FacebookUrl" target="_blank" rel="noopener noreferrer">
+                                Facebook
+                            </a>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(business.TikTokUrl))
+                        {
+                            <a href="@business.TikTokUrl" target="_blank" rel="noopener noreferrer">
+                                TikTok
+                            </a>
+                        }
+                    </div>
+
+                    <a class="contact-book-btn" href="/booking">
+                        Boka ny tid
+                    </a>
+                </aside>
+
+            </section>
+        </main>
+    </div>
+}
+
+<BusinessFooter Business="business" />
+
+@code {
+    private bool isLoading = true;
+    private Business? business;
+    private List<DayHoursModel> weeklyHours = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        business = await db.Businesses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.IsActive && x.AllowOnlineBookings);
+
+        if (business is not null)
+            LoadWeeklyHours();
+
+        isLoading = false;
+    }
+
+    private void LoadWeeklyHours()
+    {
+        if (business is null)
+            return;
+
+        weeklyHours =
+        [
+            new("Måndag", DayOfWeek.Monday, business.MondayIsOpen, business.MondayOpeningTime, business.MondayClosingTime),
+            new("Tisdag", DayOfWeek.Tuesday, business.TuesdayIsOpen, business.TuesdayOpeningTime, business.TuesdayClosingTime),
+            new("Onsdag", DayOfWeek.Wednesday, business.WednesdayIsOpen, business.WednesdayOpeningTime, business.WednesdayClosingTime),
+            new("Torsdag", DayOfWeek.Thursday, business.ThursdayIsOpen, business.ThursdayOpeningTime, business.ThursdayClosingTime),
+            new("Fredag", DayOfWeek.Friday, business.FridayIsOpen, business.FridayOpeningTime, business.FridayClosingTime),
+            new("Lördag", DayOfWeek.Saturday, business.SaturdayIsOpen, business.SaturdayOpeningTime, business.SaturdayClosingTime),
+            new("Söndag", DayOfWeek.Sunday, business.SundayIsOpen, business.SundayOpeningTime, business.SundayClosingTime)
+        ];
+    }
+
+    private string DisplayAddress()
+    {
+        if (business is null)
+            return "";
+
+        if (!string.IsNullOrWhiteSpace(business.Address) && !string.IsNullOrWhiteSpace(business.City))
+            return $"{business.Address}, {business.City}";
+
+        return DisplayOrFallback(business.Address, DisplayOrFallback(business.City, "Adress saknas"));
+    }
+
+    private string GetThemeStyle()
+    {
+        if (business is null)
+            return "";
+
+        return string.Join(" ",
+            $"--public-page-bg:{CssValue(business.PageBackgroundColor, "#F8F4ED")};",
+            $"--public-card-bg:{CssValue(business.CardBackgroundColor, "#FFFFFF")};",
+            $"--public-section-bg:{CssValue(business.SectionBackgroundColor, "#FFFFFF")};",
+            $"--public-heading:{CssValue(business.HeadingTextColor, "#151515")};",
+            $"--public-body:{CssValue(business.BodyTextColor, "#4B5563")};",
+            $"--public-muted:{CssValue(business.MutedTextColor, "#7A6F63")};",
+            $"--public-secondary:{CssValue(business.SecondaryColor, "#C9A46A")};",
+            $"--public-button-bg:{CssValue(business.ButtonBackgroundColor, "#151515")};",
+            $"--public-button-text:{CssValue(business.ButtonTextColor, "#FFFFFF")};",
+            $"--public-input-border:{CssValue(business.InputBorderColor, "#E5E7EB")};",
+            $"background:{CssValue(business.PageBackgroundColor, "#F8F4ED")};",
+            $"color:{CssValue(business.BodyTextColor, "#4B5563")};"
+        );
+    }
+
+    private string GetHeroStyle()
+    {
+        if (business is null)
+            return "";
+
+        if (string.IsNullOrWhiteSpace(business.CoverImageUrl))
+            return $"background:linear-gradient(135deg,{business.PrimaryColor},{business.SecondaryColor}); color:{business.HeroTextColor};";
+
+        return $"background:linear-gradient({business.HeroOverlayColor},{business.HeroOverlayColor}), url('{business.CoverImageUrl}') center/cover; color:{business.HeroTextColor};";
+    }
+
+    private static string DisplayOrFallback(string? value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value;
+
+    private static string CssValue(string? value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value;
+
+    private sealed record DayHoursModel(
+        string Label,
+        DayOfWeek Day,
+        bool IsOpen,
+        TimeSpan Open,
+        TimeSpan Close);
+}

@@ -8825,3 +8825,300 @@ h1:focus {
         max-width: 1280px !important;
     }
 }
+
+.public-scroll-anchor {
+    display: block;
+    height: 1px;
+    scroll-margin-top: calc(var(--public-navbar-height, 64px) + 32px);
+}
+
+.public-booking-hero {
+    min-height: 520px;
+}
+
+
+    .public-simple-hero.compact h1 {
+        margin: 8px 0;
+        font-size: clamp(36px, 6vw, 68px);
+    }
+
+.contact-hours-page {
+    padding-top: 34px;
+}
+
+.contact-info-grid {
+    margin-top: 0;
+}
+
+    .contact-info-grid a,
+    .contact-details-list a {
+        color: var(--public-secondary);
+        font-weight: 900;
+        text-decoration: none;
+    }
+
+.contact-hours-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
+    gap: 22px;
+    margin-top: 24px;
+    align-items: start;
+}
+
+.contact-details-list {
+    display: grid;
+    gap: 14px;
+    margin-top: 18px;
+}
+
+    .contact-details-list div {
+        display: grid;
+        gap: 5px;
+        padding: 15px;
+        border-radius: 18px;
+        background: var(--public-section-bg);
+        border: 1px solid var(--public-input-border);
+    }
+
+    .contact-details-list span {
+        color: var(--public-muted);
+        font-size: 12px;
+        font-weight: 950;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .contact-details-list strong {
+        color: var(--public-heading);
+    }
+
+.contact-book-btn {
+    display: flex;
+    justify-content: center;
+    margin-top: 22px;
+    text-decoration: none;
+}
+
+@media (max-width: 920px) {
+    .contact-hours-layout,
+    .contact-info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .public-simple-hero.compact {
+        min-height: 230px;
+        padding: 42px 18px 36px;
+    }
+}
+
+.contact-book-btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 16px;
+    border-radius: 18px;
+    background: linear-gradient( 135deg, var(--public-primary), var(--public-secondary) );
+    color: white;
+    text-decoration: none;
+    font-weight: 900;
+    letter-spacing: .02em;
+}
+
+.contact-book-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 28px;
+    border-radius: 16px;
+    background: var(--public-button-bg);
+    color: var(--public-button-text);
+    text-decoration: none;
+    font-weight: 800;
+    margin-top: 24px;
+}
+
+.services-hero {
+    min-height: 360px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 70px 20px 55px;
+}
+
+.services-hero-content {
+    width: min(780px, 100%);
+    text-align: center;
+}
+
+.services-hero h1 {
+    margin: 18px 0 12px;
+    font-size: clamp(42px, 6vw, 76px);
+    line-height: 1;
+    font-weight: 950;
+    letter-spacing: -0.06em;
+}
+
+.services-hero p {
+    margin: 0 auto;
+    max-width: 680px;
+    font-size: 18px;
+    line-height: 1.7;
+    opacity: .92;
+}
+
+.services-page-shell {
+    width: min(1180px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: 46px 0 70px;
+}
+
+.services-page-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px;
+}
+
+.services-page-card {
+    background: var(--public-service-card-bg);
+    color: var(--public-body);
+    border-radius: 30px;
+    padding: 26px;
+    box-shadow: 0 24px 70px rgba(17, 24, 39, .08);
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+    .services-page-card h2 {
+        margin: 0;
+        color: var(--public-heading);
+        font-size: 24px;
+        font-weight: 950;
+    }
+
+    .services-page-card p {
+        margin: 10px 0 0;
+        color: var(--public-muted);
+        line-height: 1.7;
+    }
+
+.services-page-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: center;
+    margin-top: auto;
+}
+
+    .services-page-meta span {
+        color: var(--public-muted);
+        font-weight: 850;
+    }
+
+    .services-page-meta strong {
+        color: var(--public-price);
+        font-size: 18px;
+        font-weight: 950;
+    }
+
+.services-page-btn {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: 16px;
+    background: var(--public-button-bg);
+    color: var(--public-button-text);
+    text-decoration: none;
+    font-weight: 900;
+} 
+
+@media (max-width: 920px) {
+    .services-page-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.services-hero,
+.contact-hero {
+    min-height: 560px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+    background-position: center;
+    background-size: cover;
+}
+
+.services-page-btn,
+.contact-book-btn {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: 16px;
+    background: var(--public-button-bg);
+    color: var(--public-button-text);
+    text-decoration: none;
+    font-weight: 900;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.contact-book-btn {
+    margin-top: 24px;
+}
+
+.services-hero,
+.contact-hero,
+.public-simple-hero.compact {
+    min-height: 560px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+    background-position: center;
+    background-size: cover;
+}
+
+.services-hero-content,
+.contact-hero-content,
+.public-simple-hero-content {
+    width: min(780px, 100%);
+    text-align: center;
+}
+
+.services-hero h1,
+.contact-hero h1,
+.public-simple-hero h1 {
+    margin: 18px 0 12px;
+    font-size: clamp(42px, 6vw, 76px);
+    line-height: 1;
+    font-weight: 950;
+    letter-spacing: -0.06em;
+}
+
+.services-hero p,
+.contact-hero p,
+.public-simple-hero p {
+    margin: 0 auto;
+    max-width: 680px;
+    font-size: 18px;
+    line-height: 1.7;
+    opacity: .92;
+}
+
+@media (max-width: 920px) {
+    .services-hero,
+    .contact-hero,
+    .public-simple-hero.compact {
+        min-height: 560px;
+        padding: 80px 20px;
+    }
+}

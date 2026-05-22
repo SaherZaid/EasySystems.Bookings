@@ -1,0 +1,147 @@
+﻿@page "/services"
+@rendermode InteractiveServer
+
+@using EasySystems.Bookings.Data
+@using EasySystems.Bookings.Data.Entities
+@using Microsoft.EntityFrameworkCore
+
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+
+<PageTitle>Tjänster</PageTitle>
+
+<PublicNavbar />
+
+@if (business is null)
+{
+    <div class="public-booking-page">
+        <div class="public-empty-state">
+            <h1>Inga tjänster hittades</h1>
+            <p>Verksamheten är inte aktiv just nu.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="public-booking-page" style="@GetPublicThemeStyle()">
+
+        <section class="services-hero" style="@GetHeroStyle()">
+            <div class="services-hero-content">
+                <span class="public-booking-pill">Tjänster</span>
+                <h1>Våra tjänster</h1>
+                <p>@DisplayOrFallback(business.Description, "Välj en tjänst och boka en tid som passar dig.")</p>
+            </div>
+        </section>
+
+        <main class="services-page-shell">
+
+            @if (!services.Any())
+            {
+                <div class="public-empty-state">
+                    <h2>Inga tjänster tillgängliga</h2>
+                    <p>Det finns inga aktiva tjänster just nu.</p>
+                </div>
+            }
+            else
+            {
+                <section class="services-page-grid">
+                    @foreach (var service in services)
+                    {
+                        <article class="services-page-card">
+                            <div>
+                                <h2>@service.Name</h2>
+
+                                @if (!string.IsNullOrWhiteSpace(service.Description))
+                                {
+                                    <p>@service.Description</p>
+                                }
+                            </div>
+
+                            <div class="services-page-meta">
+                                <span>@service.DurationMinutes min</span>
+                                <strong>@service.Price.ToString("0.00") kr</strong>
+                            </div>
+
+                            <a class="services-page-btn" href="/booking">
+                                Boka ny tid
+                            </a>
+                        </article>
+                    }
+                </section>
+            }
+
+        </main>
+
+        <BusinessFooter Business="business" />
+    </div>
+}
+
+@code {
+    private Business? business;
+    private List<Service> services = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        business = await db.Businesses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.IsActive && x.AllowOnlineBookings);
+
+        if (business is null)
+            return;
+
+        services = await db.Services
+            .AsNoTracking()
+            .Where(x => x.BusinessId == business.Id && x.IsActive)
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.Name)
+            .ToListAsync();
+    }
+
+    private string GetPublicThemeStyle()
+    {
+        if (business is null)
+            return "";
+
+        return string.Join(" ",
+            $"--public-page-bg:{CssValue(business.PageBackgroundColor, "#F8F4ED")};",
+            $"--public-card-bg:{CssValue(business.CardBackgroundColor, "#FFFFFF")};",
+            $"--public-service-card-bg:{CssValue(business.ServiceCardBackgroundColor, "#FFFFFF")};",
+            $"--public-heading:{CssValue(business.HeadingTextColor, "#151515")};",
+            $"--public-body:{CssValue(business.BodyTextColor, "#4B5563")};",
+            $"--public-muted:{CssValue(business.MutedTextColor, "#7A6F63")};",
+            $"--public-button-bg:{CssValue(business.ButtonBackgroundColor, "#151515")};",
+            $"--public-button-text:{CssValue(business.ButtonTextColor, "#FFFFFF")};",
+            $"--public-price:{CssValue(business.PriceTextColor, "#151515")};",
+            $"background-color:{CssValue(business.PageBackgroundColor, "#F8F4ED")};",
+            $"color:{CssValue(business.BodyTextColor, "#4B5563")};"
+        );
+    }
+
+    private string GetHeroStyle()
+    {
+        if (business is null)
+            return "";
+
+        var heroText = CssValue(business.HeroTextColor, "#FFFFFF");
+
+        if (string.IsNullOrWhiteSpace(business.CoverImageUrl))
+        {
+            return $"background-image:linear-gradient(135deg,{CssValue(business.PrimaryColor, "#151515")},{CssValue(business.SecondaryColor, "#C9A46A")}); color:{heroText};";
+        }
+
+        var overlay = CssValue(business.HeroOverlayColor, "rgba(0,0,0,.55)");
+
+        return $"background-image:linear-gradient({overlay},{overlay}), url('{business.CoverImageUrl}'); background-position:center; background-size:cover; color:{heroText};";
+    }
+
+    private static string DisplayOrFallback(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    private static string CssValue(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+}

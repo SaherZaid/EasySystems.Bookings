@@ -22,29 +22,31 @@
 
 <PublicNavbar />
 
-<div class="customer-portal-page" style="@GetCustomerThemeStyle()">
-
-    <section class="customer-portal-hero" style="@GetCustomerHeroStyle()">
-        <div>
-            <p class="customer-portal-eyebrow">Kundportal</p>
-            <h1>Mina bokningar</h1>
-            <p>Se dina kommande tider, tidigare besök och hantera avbokningar enkelt.</p>
-        </div>
-
-        <div class="customer-portal-actions">
-            <a href="/" class="customer-portal-light-btn">Boka ny tid</a>
-        </div>
-    </section>
-
-    @if (isLoading)
-    {
+@if (isLoading)
+{
+    <div class="customer-portal-page customer-portal-loading-page">
         <div class="customer-portal-loading">
             <div class="customer-portal-spinner"></div>
             <span>Laddar dina bokningar...</span>
         </div>
-    }
-    else
-    {
+    </div>
+}
+else
+{
+    <div class="customer-portal-page" style="@GetCustomerThemeStyle()">
+
+        <section class="customer-portal-hero" style="@GetCustomerHeroStyle()">
+            <div>
+                <p class="customer-portal-eyebrow">Kundportal</p>
+                <h1>Mina bokningar</h1>
+                <p>Se dina kommande tider, tidigare besök och hantera avbokningar enkelt.</p>
+            </div>
+
+            <div class="customer-portal-actions">
+                <a href="/" class="customer-portal-light-btn">Boka ny tid</a>
+            </div>
+        </section>
+
         @if (!string.IsNullOrWhiteSpace(errorMessage))
         {
             <div class="customer-portal-alert error">@errorMessage</div>
@@ -230,8 +232,8 @@
             </aside>
 
         </main>
-    }
-</div>
+    </div>
+}
 
 @code {
     private bool isLoading = true;
@@ -264,61 +266,71 @@
         isLoading = true;
         errorMessage = null;
 
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var principal = authState.User;
-
-        if (principal.Identity?.IsAuthenticated != true)
+        try
         {
-            Navigation.NavigateTo("/Account/Login");
-            return;
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var principal = authState.User;
+
+            if (principal.Identity?.IsAuthenticated != true)
+            {
+                Navigation.NavigateTo("/Account/Login", true);
+                return;
+            }
+
+            currentUser = await UserManager.GetUserAsync(principal);
+
+            if (currentUser is null)
+            {
+                Navigation.NavigateTo("/Account/Login", true);
+                return;
+            }
+
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            allBookings = await db.Bookings
+                .AsNoTracking()
+                .Include(x => x.Business)
+                .Include(x => x.Service)
+                .Include(x => x.StaffMember)
+                .Where(x => x.CustomerUserId == currentUser.Id)
+                .OrderByDescending(x => x.StartTime)
+                .ToListAsync();
+
+            themeBusiness = allBookings
+                .OrderByDescending(x => x.StartTime)
+                .Select(x => x.Business)
+                .FirstOrDefault();
+
+            themeBusiness ??= await db.Businesses
+                .AsNoTracking()
+                .Where(x => x.IsActive && x.AllowOnlineBookings)
+                .OrderByDescending(x => x.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            upcomingBookings = allBookings
+                .Where(x => x.StartTime >= DateTime.Now)
+                .OrderBy(x => x.StartTime)
+                .ToList();
+
+            previousBookings = allBookings
+                .Where(x => x.StartTime < DateTime.Now)
+                .OrderByDescending(x => x.StartTime)
+                .Take(12)
+                .ToList();
+
+            confirmedCount = allBookings.Count(x => x.Status == "Confirmed");
+            pendingCount = allBookings.Count(x => x.Status == "Pending");
+            cancelledCount = allBookings.Count(x => x.Status == "Cancelled");
         }
-
-        currentUser = await UserManager.GetUserAsync(principal);
-
-        if (currentUser is null)
+        catch (Exception ex)
         {
-            Navigation.NavigateTo("/Account/Login");
-            return;
+            Logger.LogError(ex, "Could not load customer bookings.");
+            errorMessage = "Dina bokningar kunde inte laddas just nu.";
         }
-
-        await using var db = await DbFactory.CreateDbContextAsync();
-
-        allBookings = await db.Bookings
-            .AsNoTracking()
-            .Include(x => x.Business)
-            .Include(x => x.Service)
-            .Include(x => x.StaffMember)
-            .Where(x => x.CustomerUserId == currentUser.Id)
-            .OrderByDescending(x => x.StartTime)
-            .ToListAsync();
-
-        themeBusiness = allBookings
-            .OrderByDescending(x => x.StartTime)
-            .Select(x => x.Business)
-            .FirstOrDefault();
-
-        themeBusiness ??= await db.Businesses
-            .AsNoTracking()
-            .Where(x => x.IsActive && x.AllowOnlineBookings)
-            .OrderByDescending(x => x.CreatedAt)
-            .FirstOrDefaultAsync();
-
-        upcomingBookings = allBookings
-            .Where(x => x.StartTime >= DateTime.Now)
-            .OrderBy(x => x.StartTime)
-            .ToList();
-
-        previousBookings = allBookings
-            .Where(x => x.StartTime < DateTime.Now)
-            .OrderByDescending(x => x.StartTime)
-            .Take(12)
-            .ToList();
-
-        confirmedCount = allBookings.Count(x => x.Status == "Confirmed");
-        pendingCount = allBookings.Count(x => x.Status == "Pending");
-        cancelledCount = allBookings.Count(x => x.Status == "Cancelled");
-
-        isLoading = false;
+        finally
+        {
+            isLoading = false;
+        }
     }
 
     private async Task CancelBookingAsync(int bookingId)
@@ -330,56 +342,64 @@
         successMessage = null;
         cancellingBookingIds.Add(bookingId);
 
-        await using var db = await DbFactory.CreateDbContextAsync();
-
-        var booking = await db.Bookings
-            .Include(x => x.Business)
-            .Include(x => x.Service)
-            .Include(x => x.StaffMember)
-            .FirstOrDefaultAsync(x =>
-                x.Id == bookingId &&
-                x.CustomerUserId == currentUser.Id);
-
-        if (booking is null)
-        {
-            errorMessage = "Bokningen kunde inte hittas.";
-            cancellingBookingIds.Remove(bookingId);
-            return;
-        }
-
-        if (!CanCancel(booking))
-        {
-            errorMessage = "Den här bokningen kan inte avbokas.";
-            cancellingBookingIds.Remove(bookingId);
-            return;
-        }
-
-        booking.Status = "Cancelled";
-        booking.CancellationReason = "Avbokad av kunden";
-        booking.UpdatedAt = DateTime.UtcNow;
-
-        await db.SaveChangesAsync();
-
-        var emailFailed = false;
-
         try
         {
-            await BookingEmailSender.SendBookingCancelledToCustomerAsync(booking);
-            await BookingEmailSender.SendBookingCancelledToBusinessAsync(booking);
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            var booking = await db.Bookings
+                .Include(x => x.Business)
+                .Include(x => x.Service)
+                .Include(x => x.StaffMember)
+                .FirstOrDefaultAsync(x =>
+                    x.Id == bookingId &&
+                    x.CustomerUserId == currentUser.Id);
+
+            if (booking is null)
+            {
+                errorMessage = "Bokningen kunde inte hittas.";
+                return;
+            }
+
+            if (!CanCancel(booking))
+            {
+                errorMessage = "Den här bokningen kan inte avbokas.";
+                return;
+            }
+
+            booking.Status = "Cancelled";
+            booking.CancellationReason = "Avbokad av kunden";
+            booking.UpdatedAt = DateTime.UtcNow;
+
+            await db.SaveChangesAsync();
+
+            var emailFailed = false;
+
+            try
+            {
+                await BookingEmailSender.SendBookingCancelledToCustomerAsync(booking);
+                await BookingEmailSender.SendBookingCancelledToBusinessAsync(booking);
+            }
+            catch (Exception ex)
+            {
+                emailFailed = true;
+                Logger.LogError(ex, "Failed to send cancellation email for booking {BookingId}", booking.Id);
+            }
+
+            await LoadBookingsAsync();
+
+            successMessage = emailFailed
+                ? "Bokningen avbokades, men e-postnotisen kunde inte skickas just nu."
+                : "Bokningen har avbokats och e-postnotiser har skickats.";
         }
         catch (Exception ex)
         {
-            emailFailed = true;
-            Logger.LogError(ex, "Failed to send cancellation email for booking {BookingId}", booking.Id);
+            Logger.LogError(ex, "Could not cancel booking {BookingId}", bookingId);
+            errorMessage = "Bokningen kunde inte avbokas just nu.";
         }
-
-        cancellingBookingIds.Remove(bookingId);
-
-        await LoadBookingsAsync();
-
-        successMessage = emailFailed
-            ? "Bokningen avbokades, men e-postnotisen kunde inte skickas just nu."
-            : "Bokningen har avbokats och e-postnotiser har skickats.";
+        finally
+        {
+            cancellingBookingIds.Remove(bookingId);
+        }
     }
 
     private static bool CanCancel(Booking booking)
