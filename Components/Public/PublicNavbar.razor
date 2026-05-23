@@ -4,7 +4,6 @@
 @using EasySystems.Bookings.Data.Identity
 
 @using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.EntityFrameworkCore
 
 @inject AuthenticationStateProvider AuthStateProvider
@@ -15,7 +14,11 @@
 <nav class="public-navbar" style="@GetNavbarStyle()">
     <div class="public-navbar-shell">
 
-        <a class="public-navbar-brand" href="/" @onclick="CloseMenu">
+        <a class="public-navbar-brand"
+           href="/"
+           data-enhance-nav="false"
+           @onclick="CloseMenu">
+
             @if (!string.IsNullOrWhiteSpace(business?.LogoUrl))
             {
                 <img class="public-navbar-brand-logo" src="@business.LogoUrl" alt="@business.Name" />
@@ -28,13 +31,8 @@
             }
 
             <span class="public-navbar-brand-text">
-                <small>
-                    @DisplayOrFallback(business?.BusinessType, "Bokning online")
-                </small>
-
-                <strong>
-                    @DisplayOrFallback(business?.Name, "EasyBookings")
-                </strong>
+                <small>@DisplayOrFallback(business?.BusinessType, "Bokning online")</small>
+                <strong>@DisplayOrFallback(business?.Name, "EasyBookings")</strong>
             </span>
         </a>
 
@@ -48,45 +46,72 @@
         </button>
 
         <div class="public-navbar-links @(isOpen ? "open" : "")">
-            <NavLink href="/" Match="NavLinkMatch.All" @onclick="CloseMenu">
+
+            <a href="/"
+               class="@GetActiveClass("/")"
+               data-enhance-nav="false"
+               @onclick="CloseMenu">
                 Hem
-            </NavLink>
+            </a>
 
-            <NavLink href="/hours" @onclick="CloseMenu">
+            <a href="/hours"
+               class="@GetActiveClass("/hours")"
+               data-enhance-nav="false"
+               @onclick="CloseMenu">
                 Öppettider
-            </NavLink>
+            </a>
 
-            <NavLink href="/booking" @onclick="CloseMenu">
+            <a href="/booking"
+               class="@GetActiveClass("/booking")"
+               data-enhance-nav="false"
+               @onclick="CloseMenu">
                 Boka ny tid
-            </NavLink>
+            </a>
 
-            <NavLink href="/services" @onclick="CloseMenu">
+            <a href="/services"
+               class="@GetActiveClass("/services")"
+               data-enhance-nav="false"
+               @onclick="CloseMenu">
                 Tjänster
-            </NavLink>
+            </a>
 
-            <NavLink href="/privacy" @onclick="CloseMenu">
+            <a href="/privacy"
+               class="@GetActiveClass("/privacy")"
+               data-enhance-nav="false"
+               @onclick="CloseMenu">
                 Integritet
-            </NavLink>
+            </a>
 
-            <NavLink href="/terms" @onclick="CloseMenu">
+            <a href="/terms"
+               class="@GetActiveClass("/terms")"
+               data-enhance-nav="false"
+               @onclick="CloseMenu">
                 Villkor
-            </NavLink>
+            </a>
 
             @if (isAuthenticated)
             {
-                <NavLink href="/Account/Profile" @onclick="CloseMenu">
+                <a href="/Account/Profile"
+                   class="@GetActiveClass("/Account/Profile")"
+                   data-enhance-nav="false"
+                   @onclick="CloseMenu">
                     Profil
-                </NavLink>
+                </a>
 
-                <NavLink href="/Account/Bookings" @onclick="CloseMenu">
+                <a href="/Account/Bookings"
+                   class="@GetActiveClass("/Account/Bookings")"
+                   data-enhance-nav="false"
+                   @onclick="CloseMenu">
                     Mina bokningar
-                </NavLink>
+                </a>
 
                 @if (canOpenAdmin)
                 {
-                    <NavLink href="@adminUrl" @onclick="CloseMenu">
+                    <a href="@adminUrl"
+                       data-enhance-nav="false"
+                       @onclick="CloseMenu">
                         Admin
-                    </NavLink>
+                    </a>
                 }
 
                 <form action="/Account/Logout"
@@ -106,13 +131,19 @@
             }
             else
             {
-                <NavLink href="/Account/Login" @onclick="CloseMenu">
+                <a href="/Account/Login"
+                   class="@GetActiveClass("/Account/Login")"
+                   data-enhance-nav="false"
+                   @onclick="CloseMenu">
                     Logga in
-                </NavLink>
+                </a>
 
-                <NavLink href="/Account/Register" @onclick="CloseMenu">
+                <a href="/Account/Register"
+                   class="@GetActiveClass("/Account/Register")"
+                   data-enhance-nav="false"
+                   @onclick="CloseMenu">
                     Skapa konto
-                </NavLink>
+                </a>
             }
         </div>
     </div>
@@ -175,7 +206,19 @@
 
     private string GetLogoutReturnUrl()
     {
-        return "";
+        return "/";
+    }
+
+    private string GetActiveClass(string path)
+    {
+        var currentPath = "/" + Navigation.ToBaseRelativePath(Navigation.Uri).Trim('/');
+
+        if (currentPath == "//")
+            currentPath = "/";
+
+        return string.Equals(currentPath, path, StringComparison.OrdinalIgnoreCase)
+            ? "active"
+            : "";
     }
 
     private string GetNavbarStyle()
