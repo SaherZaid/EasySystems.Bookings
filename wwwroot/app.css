@@ -9211,3 +9211,199 @@ h1:focus {
         position: static;
     }
 }
+
+/*BookingAppointmentPage*/
+.booking-page-layout-single {
+    display: block;
+    max-width: 980px;
+    margin: 0 auto;
+}
+
+.booking-summary-open-btn {
+    width: 100%;
+    border: 1px solid var(--public-input-border);
+    background: var(--public-section-bg);
+    color: var(--public-heading);
+    border-radius: 22px;
+    padding: 16px 18px;
+    margin: 0 0 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    font-weight: 950;
+    cursor: pointer;
+}
+
+.booking-summary-open-btn span {
+    color: var(--public-muted);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.booking-summary-floating-btn {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 18px;
+    z-index: 80;
+    border: 0;
+    border-radius: 22px;
+    padding: 14px 18px;
+    background: var(--public-button-bg);
+    color: var(--public-button-text);
+    box-shadow: 0 18px 45px rgba(0, 0, 0, .22);
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-weight: 950;
+    cursor: pointer;
+}
+
+.booking-summary-floating-btn span {
+    opacity: .82;
+}
+
+.booking-summary-floating-btn strong {
+    font-size: 15px;
+}
+
+.booking-summary-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(0, 0, 0, .54);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 18px;
+}
+
+.booking-summary-modal {
+    width: min(520px, 100%);
+    background: var(--public-card-bg);
+    color: var(--public-body);
+    border-radius: 30px;
+    padding: 22px;
+    box-shadow: 0 30px 90px rgba(0, 0, 0, .28);
+    animation: bookingSummaryUp .18s ease-out;
+}
+
+.booking-summary-modal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.booking-summary-modal-head p {
+    margin: 0 0 4px;
+    color: var(--public-muted);
+    font-size: 12px;
+    font-weight: 950;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.booking-summary-modal-head h2 {
+    margin: 0;
+    color: var(--public-heading);
+    font-size: 26px;
+    font-weight: 950;
+}
+
+.booking-summary-close {
+    width: 42px;
+    height: 42px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--public-section-bg);
+    color: var(--public-heading);
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.booking-summary-steps {
+    display: grid;
+    gap: 12px;
+}
+
+.booking-summary-step {
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    gap: 12px;
+    align-items: center;
+    padding: 14px;
+    border-radius: 20px;
+    background: var(--public-section-bg);
+    border: 1px solid var(--public-input-border);
+}
+
+.booking-summary-step > span {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--public-time-bg);
+    color: var(--public-time-text);
+    font-weight: 950;
+}
+
+.booking-summary-step.done > span {
+    background: var(--public-time-active-bg);
+    color: var(--public-time-active-text);
+}
+
+.booking-summary-step small {
+    display: block;
+    color: var(--public-muted);
+    font-weight: 900;
+    margin-bottom: 3px;
+}
+
+.booking-summary-step strong {
+    color: var(--public-heading);
+    font-weight: 950;
+}
+
+.booking-summary-modal-btn {
+    width: 100%;
+    margin-top: 18px;
+    border: 0;
+    border-radius: 18px;
+    padding: 15px 18px;
+    background: var(--public-button-bg);
+    color: var(--public-button-text);
+    font-weight: 950;
+    cursor: pointer;
+}
+
+@keyframes bookingSummaryUp {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 760px) {
+    .booking-summary-floating-btn {
+        display: flex;
+    }
+
+    .booking-page-shell {
+        padding-bottom: 95px;
+    }
+
+    .booking-summary-open-btn {
+        display: none;
+    }
+}
