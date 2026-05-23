@@ -9407,3 +9407,10 @@ h1:focus {
         display: none;
     }
 }
+
+.customer-portal-alert {
+    position: relative;
+    z-index: 5;
+    width: min(1180px, calc(100% - 32px));
+    margin: 24px auto 0;
+}
