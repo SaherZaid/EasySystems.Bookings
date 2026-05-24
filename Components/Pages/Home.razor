@@ -3,7 +3,6 @@
 
 @using EasySystems.Bookings.Data
 @using EasySystems.Bookings.Data.Entities
-@using EasySystems.Bookings.Services
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
@@ -12,8 +11,6 @@
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
 @inject AuthenticationStateProvider AuthStateProvider
 @inject UserManager<ApplicationUser> UserManager
-@inject IBookingEmailSender BookingEmailSender
-@inject ILoggerFactory LoggerFactory
 
 <PageTitle>@pageTitle</PageTitle>
 
@@ -30,16 +27,17 @@
 }
 else
 {
-    <div class="public-booking-page" style="@GetPublicThemeStyle()">
+    <div class="public-booking-page home-landing-page" style="@GetPublicThemeStyle()">
 
-        <section class="public-booking-hero" style="@GetHeroStyle()">
+        <section class="public-booking-hero home-landing-hero" style="@GetHeroStyle()">
             <div class="public-booking-hero-content">
+
                 @if (isLoading)
                 {
                     <div class="public-booking-logo-fallback">EB</div>
                     <span class="public-booking-pill">Bokning online</span>
                     <h1>EasyBookings</h1>
-                    <p class="public-booking-tagline">Laddar bokningssidan...</p>
+                    <p class="public-booking-tagline">Laddar sidan...</p>
                 }
                 else if (business is not null)
                 {
@@ -52,26 +50,22 @@ else
                         <div class="public-booking-logo-fallback">@GetInitials()</div>
                     }
 
-                    @if (!string.IsNullOrWhiteSpace(business.BusinessType))
-                    {
-                        <span class="public-booking-pill">@business.BusinessType</span>
-                    }
+                    <span class="public-booking-pill">
+                        @DisplayOrFallback(business.BusinessType, "Bokning online")
+                    </span>
 
                     <h1>@business.Name</h1>
 
-                    @if (!string.IsNullOrWhiteSpace(business.Tagline))
-                    {
-                        <p class="public-booking-tagline">@business.Tagline</p>
-                    }
-                    else if (!string.IsNullOrWhiteSpace(business.Description))
-                    {
-                        <p class="public-booking-tagline">@business.Description</p>
-                    }
+                    <p class="public-booking-tagline">
+                        @DisplayOrFallback(
+                                 business.Tagline,
+                                 business.Description ?? "Boka din tid enkelt online.")
+                    </p>
                 }
 
                 <div class="public-booking-hero-actions">
-                    <a href="#booking" class="public-primary-link">Boka tid</a>
-                    <a href="#hours" class="public-booking-light-btn">Öppettider</a>
+                    <a href="/booking" class="public-primary-link">Boka ny tid</a>
+                    <a href="/services" class="public-booking-light-btn">Se tjänster</a>
 
                     @if (currentUser is not null)
                     {
@@ -85,9 +79,15 @@ else
             </div>
         </section>
 
-        <main class="public-booking-shell">
+        <main class="public-booking-shell home-landing-shell">
 
-            <section class="public-info-grid">
+            <section class="public-info-grid home-landing-info-grid">
+                <div class="public-info-card">
+                    <span>Idag</span>
+                    <strong>@(isLoading ? "Laddar..." : GetTodayHoursLabel())</strong>
+                    <p>@DateTime.Today.ToString("dddd d MMMM", SwedishCulture)</p>
+                </div>
+
                 <div class="public-info-card">
                     <span>Plats</span>
                     <strong>@(isLoading ? "Laddar..." : DisplayOrFallback(business?.City, "Ej angiven"))</strong>
@@ -99,311 +99,198 @@ else
                     <strong>@(isLoading ? "Laddar..." : DisplayOrFallback(business?.Phone, "Telefon saknas"))</strong>
                     <p>@(isLoading ? "Laddar kontakt..." : DisplayOrFallback(business?.Email, "E-post saknas"))</p>
                 </div>
+            </section>
 
-                <div class="public-info-card">
-                    <span>Idag</span>
-                    <strong>@(isLoading ? "Laddar..." : GetTodayHoursLabel())</strong>
-                    <p>@DateTime.Today.ToString("dddd d MMMM", SwedishCulture)</p>
+            <section class="home-section">
+                <div class="public-section-header home-centered-header">
+                    <p>Så fungerar det</p>
+                    <h2>Enkel bokning från start till klart</h2>
+                </div>
+
+                <div class="home-feature-grid">
+                    <article class="home-feature-card">
+                        <span>01</span>
+                        <h3>Välj tjänst</h3>
+                        <p>Se vilka tjänster som finns tillgängliga och välj det som passar dig bäst.</p>
+                    </article>
+
+                    <article class="home-feature-card">
+                        <span>02</span>
+                        <h3>Välj tid</h3>
+                        <p>Hitta en ledig tid direkt online baserat på öppettider och personal.</p>
+                    </article>
+
+                    <article class="home-feature-card">
+                        <span>03</span>
+                        <h3>Skicka bokning</h3>
+                        <p>Skicka din bokningsförfrågan och få detaljerna skickade till dig.</p>
+                    </article>
                 </div>
             </section>
 
-            <div id="booking" class="public-scroll-anchor"></div>
-
-            <section class="public-booking-layout">
-
-                <div class="public-booking-card">
+            <section class="home-section">
+                <div class="home-section-top">
                     <div class="public-section-header">
-                        <p>Boka tid</p>
-                        <h2>Välj tjänst, personal och tid</h2>
+                        <p>Tjänster</p>
+                        <h2>Populära tjänster</h2>
+                    </div>
 
-                        @if (isLoading)
+                    <a class="home-small-link" href="/services">Visa alla tjänster</a>
+                </div>
+
+                @if (isLoading)
+                {
+                    <div class="public-alert neutral">Laddar tjänster...</div>
+                }
+                else if (!services.Any())
+                {
+                    <div class="public-empty-state">
+                        <h2>Inga tjänster tillgängliga</h2>
+                        <p>Det finns inga aktiva tjänster just nu.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="home-services-grid">
+                        @foreach (var service in services.Take(4))
                         {
-                            <span class="public-account-badge">
-                                Laddar...
-                            </span>
+                            <article class="home-service-card">
+                                <div>
+                                    <h3>@service.Name</h3>
+
+                                    @if (!string.IsNullOrWhiteSpace(service.Description))
+                                    {
+                                        <p>@service.Description</p>
+                                    }
+                                </div>
+
+                                <div class="home-service-meta">
+                                    <span>@service.DurationMinutes min</span>
+                                    <strong>@service.Price.ToString("0.00") kr</strong>
+                                </div>
+
+                                <a href="/booking">Boka</a>
+                            </article>
                         }
-                        else if (currentUser is not null)
+                    </div>
+                }
+            </section>
+
+            <section class="home-split-section">
+                <div class="home-about-card">
+                    <div class="public-section-header">
+                        <p>Om oss</p>
+                        <h2>@DisplayOrFallback(business?.Name, "EasyBookings")</h2>
+                    </div>
+
+                    <p>
+                        @DisplayOrFallback(
+                                 business?.Description,
+                                 "Här kan kunder boka tider online, se tjänster, öppettider och kontaktuppgifter på ett enkelt sätt.")
+                    </p>
+
+                    <div class="home-about-actions">
+                        <a class="public-primary-link" href="/booking">Boka ny tid</a>
+                        <a class="public-booking-light-btn" href="/hours">Kontakt & öppettider</a>
+                    </div>
+                </div>
+
+                <div class="home-hours-card">
+                    <div class="public-section-header">
+                        <p>Öppettider</p>
+                        <h2>Den här veckan</h2>
+                    </div>
+
+                    <div class="public-hours-list">
+                        @foreach (var day in weeklyHours)
                         {
-                            <span class="public-account-badge">
-                                Inloggad som @DisplayUserName()
-                            </span>
+                            <div class="public-hours-row @(day.Day == DateTime.Today.DayOfWeek ? "today" : "")">
+                                <span>@day.Label</span>
+                                <strong>@(day.IsOpen ? $"{day.Open:hh\\:mm} - {day.Close:hh\\:mm}" : "Stängt")</strong>
+                            </div>
                         }
-                        else
-                        {
-                            <span class="public-account-badge">
-                                Du kan boka utan konto
-                            </span>
-                        }
+                    </div>
+                </div>
+            </section>
+
+            @if (staffMembers.Any())
+            {
+                <section class="home-team-section">
+                    <div class="public-section-header">
+                        <p>Team</p>
+                        <h2>Träffa vårt team</h2>
                     </div>
 
                     @if (isLoading)
                     {
-                        <div class="public-alert neutral">
-                            Laddar bokningsformuläret...
-                        </div>
-                    }
-                    else if (!services.Any())
-                    {
-                        <div class="public-alert warning">
-                            Den här verksamheten har inga bokningsbara tjänster just nu.
-                        </div>
+                        <p>Laddar personal...</p>
                     }
                     else if (!staffMembers.Any())
                     {
-                        <div class="public-alert warning">
-                            Det finns ingen personal tillgänglig för onlinebokning just nu.
-                        </div>
+                        <p>Ingen personal tillgänglig.</p>
                     }
                     else
                     {
-                        <EditForm Model="booking" OnValidSubmit="CreateBookingAsync">
-                            <DataAnnotationsValidator />
-
-                            <div class="public-form-grid">
-                                <div class="public-field">
-                                    <label>Ditt namn</label>
-                                    <InputText class="public-input" @bind-Value="booking.CustomerName" />
-                                </div>
-
-                                <div class="public-field">
-                                    <label>E-post</label>
-                                    <InputText class="public-input" @bind-Value="booking.CustomerEmail" />
-                                </div>
-
-                                <div class="public-field">
-                                    <label>Telefon</label>
-                                    <InputText class="public-input" @bind-Value="booking.CustomerPhone" />
-                                </div>
-
-                                <div class="public-field">
-                                    <label>Tjänst</label>
-                                    <InputSelect class="public-input"
-                                                 @bind-Value="booking.ServiceId"
-                                                 @bind-Value:after="OnBookingSelectionChanged">
-                                        <option value="0">Välj tjänst</option>
-
-                                        @foreach (var service in services)
-                                        {
-                                            <option value="@service.Id">
-                                                @service.Name - @service.DurationMinutes min - @service.Price.ToString("0.00") kr
-                                            </option>
-                                        }
-                                    </InputSelect>
-                                </div>
-
-                                <div class="public-field">
-                                    <label>Personal</label>
-                                    <InputSelect class="public-input"
-                                                 @bind-Value="booking.StaffMemberId"
-                                                 @bind-Value:after="OnBookingSelectionChanged">
-                                        <option value="0">Välj personal</option>
-
-                                        @foreach (var staff in staffMembers)
-                                        {
-                                            <option value="@staff.Id">
-                                                @staff.FullName
-                                                @if (!string.IsNullOrWhiteSpace(staff.Specialization))
-                                                {
-                                                    @($" - {staff.Specialization}")
-                                                }
-                                            </option>
-                                        }
-                                    </InputSelect>
-                                </div>
-
-                                <div class="public-field">
-                                    <label>Datum</label>
-                                    <InputDate class="public-input"
-                                               @bind-Value="bookingDate"
-                                               @bind-Value:after="OnBookingSelectionChanged" />
-                                </div>
-                            </div>
-
-                            <div class="public-time-picker">
-                                <div class="public-time-picker-head">
-                                    <div>
-                                        <p>Lediga tider</p>
-                                        <h3>@bookingDate.ToString("dddd d MMMM", SwedishCulture)</h3>
-                                    </div>
-
-                                    <span>@GetSelectedDayHoursLabel()</span>
-                                </div>
-
-                                @if (!SelectedDayIsOpen)
-                                {
-                                    <div class="public-alert warning">
-                                        Verksamheten är stängd denna dag. Välj ett annat datum.
-                                    </div>
-                                }
-                                else if (booking.ServiceId == 0 || booking.StaffMemberId == 0)
-                                {
-                                    <div class="public-alert neutral">
-                                        Välj tjänst och personal för att se lediga tider.
-                                    </div>
-                                }
-                                else if (!availableTimes.Any())
-                                {
-                                    <div class="public-alert warning">
-                                        Inga lediga tider finns för valt datum.
-                                    </div>
-                                }
-                                else
-                                {
-                                    <div class="public-time-grid">
-                                        @foreach (var time in availableTimes)
-                                        {
-                                            <button type="button"
-                                                    class="public-time-btn @(bookingTime == time ? "active" : "")"
-                                                    @onclick="() => SelectTime(time)">
-                                                @time.ToString(@"hh\:mm")
-                                            </button>
-                                        }
-                                    </div>
-                                }
-                            </div>
-
-                            <div class="public-field">
-                                <label>Meddelande</label>
-                                <InputTextArea class="public-input public-textarea"
-                                               rows="4"
-                                               @bind-Value="booking.Notes" />
-                            </div>
-
-                            @if (!string.IsNullOrWhiteSpace(errorMessage))
+                        <div class="home-team-grid">
+                            @foreach (var staff in staffMembers)
                             {
-                                <div class="public-alert error">@errorMessage</div>
-                            }
-
-                            @if (!string.IsNullOrWhiteSpace(successMessage))
-                            {
-                                <div class="public-alert success">@successMessage</div>
-                            }
-
-                            <button class="public-submit-btn @(isSubmitting ? "is-loading" : "")"
-                                    type="submit"
-                                    disabled="@isSubmitting">
-                                @if (isSubmitting)
-                                {
-                                    <span class="public-submit-spinner"></span>
-                                    <span>Skickar bokningen...</span>
-                                }
-                                else
-                                {
-                                    <span>Skicka bokningsförfrågan</span>
-                                }
-                            </button>
-                        </EditForm>
-                    }
-                </div>
-
-                <aside class="public-side-panel">
-
-                    <div id="hours" class="public-scroll-anchor"></div>
-
-                    <section class="public-side-card">
-                        <h2>Öppettider</h2>
-
-                        @if (isLoading)
-                        {
-                            <div class="public-loading">Laddar öppettider...</div>
-                        }
-                        else
-                        {
-                            <div class="public-hours-list">
-                                @foreach (var day in weeklyHours)
-                                {
-                                    <div class="public-hours-row @(day.Day == DateTime.Today.DayOfWeek ? "today" : "")">
-                                        <span>@day.Label</span>
-                                        <strong>@(day.IsOpen ? $"{day.Open:hh\\:mm} - {day.Close:hh\\:mm}" : "Stängt")</strong>
-                                    </div>
-                                }
-                            </div>
-                        }
-                    </section>
-
-                    <div id="services" class="public-scroll-anchor"></div>
-
-                    <section class="public-side-card">
-                        <h2>Tjänster</h2>
-
-                        @if (isLoading)
-                        {
-                            <p>Laddar tjänster...</p>
-                        }
-                        else if (!services.Any())
-                        {
-                            <p>Inga tjänster tillgängliga.</p>
-                        }
-                        else
-                        {
-                            <div class="public-service-list">
-                                @foreach (var service in services)
-                                {
-                                    <article class="public-service-item">
-                                        <div>
-                                            <strong>@service.Name</strong>
-
-                                            @if (!string.IsNullOrWhiteSpace(service.Description))
-                                            {
-                                                <p>@service.Description</p>
-                                            }
+                                <article class="home-team-card">
+                                    @if (!string.IsNullOrWhiteSpace(staff.ImageUrl))
+                                    {
+                                        <img class="home-team-image" src="@staff.ImageUrl" alt="@staff.FullName" />
+                                    }
+                                    else
+                                    {
+                                        <div class="home-team-image-fallback">
+                                            @GetStaffInitials(staff.FullName)
                                         </div>
+                                    }
 
-                                        <span class="public-service-price">
-                                            @service.DurationMinutes min · @service.Price.ToString("0.00") kr
-                                        </span>
-                                    </article>
-                                }
-                            </div>
-                        }
-                    </section>
+                                    <div class="home-team-content">
+                                        <span>@(string.IsNullOrWhiteSpace(staff.Specialization) ? "Personal" : staff.Specialization)</span>
+                                        <h3>@staff.FullName</h3>
 
-                    <section id="staff" class="public-side-card">
-                        <h2>Personal</h2>
-
-                        @if (isLoading)
-                        {
-                            <p>Laddar personal...</p>
-                        }
-                        else if (!staffMembers.Any())
-                        {
-                            <p>Ingen personal tillgänglig.</p>
-                        }
-                        else
-                        {
-                            <div class="public-staff-list">
-                                @foreach (var staff in staffMembers)
-                                {
-                                    <article class="public-staff-item">
-                                        @if (!string.IsNullOrWhiteSpace(staff.ImageUrl))
+                                        @if (!string.IsNullOrWhiteSpace(staff.Bio))
                                         {
-                                            <img src="@staff.ImageUrl" alt="@staff.FullName" />
+                                            <p>@staff.Bio</p>
                                         }
                                         else
                                         {
-                                            <div>@GetStaffInitials(staff.FullName)</div>
+                                            <p>Redo att hjälpa dig med din bokning.</p>
                                         }
 
-                                        <span>
-                                            <strong>@staff.FullName</strong>
-                                            <small>@(string.IsNullOrWhiteSpace(staff.Specialization) ? "Personal" : staff.Specialization)</small>
-                                        </span>
-                                    </article>
-                                }
-                            </div>
-                        }
-                    </section>
+                                        <a href="/booking" class="home-team-btn">
+                                            Boka tid
+                                        </a>
+                                    </div>
+                                </article>
+                            }
+                        </div>
+                    }
+                </section>
+            }
 
-                </aside>
+            <section class="home-final-cta" style="@GetHeroStyle()">
+                <div>
+                    <span class="public-booking-pill">Redo?</span>
+                    <h2>Boka din nästa tid online</h2>
+                    <p>Välj tjänst, personal och en ledig tid som passar dig.</p>
 
+                    <div class="public-booking-hero-actions">
+                        <a href="/booking" class="public-primary-link">Boka ny tid</a>
+                        <a href="/services" class="public-booking-light-btn">Se tjänster</a>
+                    </div>
+                </div>
             </section>
+
         </main>
+
+        
     </div>
 }
 
 @code {
     private bool isLoading = true;
-    private bool isSubmitting;
 
     private string pageTitle = "EasyBookings";
 
@@ -412,37 +299,20 @@ else
 
     private List<Service> services = [];
     private List<StaffMember> staffMembers = [];
-    private List<Booking> existingBookings = [];
-    private List<TimeSpan> availableTimes = [];
     private List<PublicDayHoursModel> weeklyHours = [];
-
-    private Booking booking = new()
-        {
-            Status = "Pending"
-        };
-
-    private DateTime bookingDate = DateTime.Today;
-    private TimeSpan bookingTime;
-
-    private string? errorMessage;
-    private string? successMessage;
 
     private static readonly CultureInfo SwedishCulture = new("sv-SE");
 
-    private bool SelectedDayIsOpen =>
-        GetHoursForDate(bookingDate)?.IsOpen == true;
-
     protected override async Task OnInitializedAsync()
     {
-        await using var Db = await DbFactory.CreateDbContextAsync();
-
         isLoading = true;
-        errorMessage = null;
-        successMessage = null;
 
         await LoadCurrentUserAsync();
 
-        business = await Db.Businesses
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        business = await db.Businesses
+            .AsNoTracking()
             .FirstOrDefaultAsync(b => b.IsActive && b.AllowOnlineBookings);
 
         if (business is null)
@@ -456,22 +326,19 @@ else
 
         LoadWeeklyHours();
 
-        services = await Db.Services
+        services = await db.Services
+            .AsNoTracking()
             .Where(s => s.BusinessId == business.Id && s.IsActive)
             .OrderBy(s => s.SortOrder)
             .ThenBy(s => s.Name)
             .ToListAsync();
 
-        staffMembers = await Db.StaffMembers
+        staffMembers = await db.StaffMembers
+            .AsNoTracking()
             .Where(s => s.BusinessId == business.Id && s.IsActive && s.AllowOnlineBookings)
             .OrderBy(s => s.SortOrder)
             .ThenBy(s => s.FullName)
             .ToListAsync();
-
-        ResetBookingForm();
-        PrefillCustomerFromAccount();
-
-        await LoadAvailableTimesAsync();
 
         isLoading = false;
     }
@@ -484,298 +351,6 @@ else
         if (principal.Identity?.IsAuthenticated == true)
         {
             currentUser = await UserManager.GetUserAsync(principal);
-        }
-    }
-
-    private void ResetBookingForm()
-    {
-        if (business is null)
-            return;
-
-        booking = new Booking
-            {
-                BusinessId = business.Id,
-                Status = "Pending"
-            };
-    }
-
-    private void PrefillCustomerFromAccount()
-    {
-        if (currentUser is null)
-            return;
-
-        var fullName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
-
-        booking.CustomerUserId = currentUser.Id;
-        booking.CustomerName = string.IsNullOrWhiteSpace(fullName)
-            ? currentUser.Email ?? ""
-            : fullName;
-
-        booking.CustomerEmail = currentUser.Email ?? "";
-        booking.CustomerPhone = currentUser.PhoneNumber ?? "";
-    }
-
-    private async Task OnBookingSelectionChanged()
-    {
-        errorMessage = null;
-        successMessage = null;
-
-        await LoadAvailableTimesAsync();
-    }
-
-    private async Task LoadAvailableTimesAsync()
-    {
-        await using var Db = await DbFactory.CreateDbContextAsync();
-
-        availableTimes.Clear();
-
-        if (business is null)
-            return;
-
-        var dayHours = GetHoursForDate(bookingDate);
-
-        if (dayHours is null || !dayHours.IsOpen)
-            return;
-
-        var service = services.FirstOrDefault(s => s.Id == booking.ServiceId);
-
-        if (service is null || booking.StaffMemberId == 0)
-            return;
-
-        var dayStart = bookingDate.Date;
-        var dayEnd = dayStart.AddDays(1);
-
-        existingBookings = await Db.Bookings
-            .AsNoTracking()
-            .Where(b =>
-                b.BusinessId == business.Id &&
-                b.StaffMemberId == booking.StaffMemberId &&
-                b.Status != "Cancelled" &&
-                b.StartTime >= dayStart &&
-                b.StartTime < dayEnd)
-            .ToListAsync();
-
-        var current = dayHours.Open;
-        var lastStart = dayHours.Close.Subtract(TimeSpan.FromMinutes(service.DurationMinutes));
-
-        while (current <= lastStart)
-        {
-            var start = bookingDate.Date.Add(current);
-            var end = start.AddMinutes(service.DurationMinutes);
-
-            var isFuture = start > DateTime.Now;
-
-            var hasConflict = existingBookings.Any(b =>
-                start < b.EndTime &&
-                end > b.StartTime);
-
-            if (isFuture && !hasConflict)
-                availableTimes.Add(current);
-
-            current = current.Add(TimeSpan.FromMinutes(business.BookingIntervalMinutes));
-        }
-
-        if (availableTimes.Any() && !availableTimes.Contains(bookingTime))
-            bookingTime = availableTimes.First();
-    }
-
-    private void SelectTime(TimeSpan time)
-    {
-        bookingTime = time;
-    }
-
-    private async Task CreateBookingAsync()
-    {
-        if (isSubmitting)
-            return;
-
-        isSubmitting = true;
-        errorMessage = null;
-        successMessage = null;
-
-        try
-        {
-            await using var db = await DbFactory.CreateDbContextAsync();
-
-            if (business is null)
-            {
-                errorMessage = "Verksamheten hittades inte.";
-                return;
-            }
-
-            if (!business.IsActive || !business.AllowOnlineBookings)
-            {
-                errorMessage = "Verksamheten tar inte emot onlinebokningar just nu.";
-                return;
-            }
-
-            booking.CustomerName = booking.CustomerName?.Trim() ?? "";
-            booking.CustomerEmail = booking.CustomerEmail?.Trim();
-            booking.CustomerPhone = booking.CustomerPhone?.Trim();
-            booking.Notes = booking.Notes?.Trim();
-
-            if (currentUser is not null)
-                booking.CustomerUserId = currentUser.Id;
-
-            if (string.IsNullOrWhiteSpace(booking.CustomerName))
-            {
-                errorMessage = "Ange ditt namn.";
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(booking.CustomerEmail) &&
-                string.IsNullOrWhiteSpace(booking.CustomerPhone))
-            {
-                errorMessage = "Ange e-post eller telefonnummer.";
-                return;
-            }
-
-            var service = services.FirstOrDefault(s => s.Id == booking.ServiceId);
-
-            if (service is null)
-            {
-                errorMessage = "Välj en tjänst.";
-                return;
-            }
-
-            var staff = staffMembers.FirstOrDefault(s => s.Id == booking.StaffMemberId);
-
-            if (staff is null)
-            {
-                errorMessage = "Välj personal.";
-                return;
-            }
-
-            var dayHours = GetHoursForDate(bookingDate);
-
-            if (dayHours is null || !dayHours.IsOpen)
-            {
-                errorMessage = "Verksamheten är stängd detta datum.";
-                return;
-            }
-
-            var startTime = bookingDate.Date.Add(bookingTime);
-            var endTime = startTime.AddMinutes(service.DurationMinutes);
-
-            if (startTime <= DateTime.Now)
-            {
-                errorMessage = "Välj en framtida tid.";
-                return;
-            }
-
-            if (startTime.TimeOfDay < dayHours.Open ||
-                endTime.TimeOfDay > dayHours.Close)
-            {
-                errorMessage = $"Tiden måste vara inom öppettiderna: {dayHours.Open:hh\\:mm} - {dayHours.Close:hh\\:mm}.";
-                return;
-            }
-
-            var hasConflict = await db.Bookings.AnyAsync(b =>
-                b.BusinessId == business.Id &&
-                b.StaffMemberId == staff.Id &&
-                b.Status != "Cancelled" &&
-                startTime < b.EndTime &&
-                endTime > b.StartTime);
-
-            if (hasConflict)
-            {
-                errorMessage = "Tiden är redan bokad. Välj en annan tid.";
-                await LoadAvailableTimesAsync();
-                return;
-            }
-
-            if (!availableTimes.Contains(bookingTime))
-            {
-                errorMessage = "Välj en ledig tid från listan.";
-                await LoadAvailableTimesAsync();
-                return;
-            }
-
-            var newBooking = new Booking
-                {
-                    BusinessId = business.Id,
-                    ServiceId = service.Id,
-                    StaffMemberId = staff.Id,
-                    CustomerUserId = currentUser?.Id,
-                    CustomerName = booking.CustomerName,
-                    CustomerEmail = booking.CustomerEmail,
-                    CustomerPhone = booking.CustomerPhone,
-                    Notes = booking.Notes,
-                    StartTime = startTime,
-                    EndTime = endTime,
-                    Status = "Pending",
-                    IsPaid = false,
-                    PaidAmount = 0,
-                    CustomerNotified = false,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-            db.Bookings.Add(newBooking);
-            await db.SaveChangesAsync();
-
-            var emailsSent = await SendBookingEmailsAsync(newBooking.Id);
-
-            successMessage = emailsSent
-                ? "Din bokningsförfrågan har skickats. Du får ett mail med detaljerna."
-                : "Bokningen skapades, men mailet kunde inte skickas just nu.";
-
-            ResetBookingForm();
-            PrefillCustomerFromAccount();
-
-            await LoadAvailableTimesAsync();
-        }
-        catch (Exception ex)
-        {
-            var logger = LoggerFactory.CreateLogger("PublicBookingPage");
-
-            logger.LogError(
-                ex,
-                "Could not create public booking for business {BusinessId}",
-                business?.Id);
-
-            errorMessage = "Bokningen kunde inte skapas just nu. Försök igen.";
-        }
-        finally
-        {
-            isSubmitting = false;
-        }
-    }
-
-    private async Task<bool> SendBookingEmailsAsync(int bookingId)
-    {
-        await using var Db = await DbFactory.CreateDbContextAsync();
-
-        var savedBooking = await Db.Bookings
-            .AsNoTracking()
-            .Include(b => b.Business)
-            .Include(b => b.Service)
-            .Include(b => b.StaffMember)
-            .FirstOrDefaultAsync(b => b.Id == bookingId);
-
-        if (savedBooking is null)
-            return false;
-
-        try
-        {
-            await BookingEmailSender.SendBookingCreatedToCustomerAsync(savedBooking);
-            await BookingEmailSender.SendBookingCreatedToBusinessAsync(savedBooking);
-
-            var trackedBooking = await Db.Bookings.FirstOrDefaultAsync(b => b.Id == bookingId);
-
-            if (trackedBooking is not null)
-            {
-                trackedBooking.CustomerNotified = true;
-                trackedBooking.UpdatedAt = DateTime.UtcNow;
-                await Db.SaveChangesAsync();
-            }
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            var logger = LoggerFactory.CreateLogger("PublicBookingPage");
-            logger.LogError(ex, "Could not send booking emails for booking {BookingId}", bookingId);
-            return false;
         }
     }
 
@@ -796,46 +371,14 @@ else
         ];
     }
 
-    private PublicDayHoursModel? GetHoursForDate(DateTime date)
-    {
-        return weeklyHours.FirstOrDefault(x => x.Day == date.DayOfWeek);
-    }
-
-    private string GetSelectedDayHoursLabel()
-    {
-        var hours = GetHoursForDate(bookingDate);
-
-        if (hours is null || !hours.IsOpen)
-            return "Stängt";
-
-        return $"{hours.Open:hh\\:mm} - {hours.Close:hh\\:mm}";
-    }
-
     private string GetTodayHoursLabel()
     {
-        var hours = GetHoursForDate(DateTime.Today);
+        var hours = weeklyHours.FirstOrDefault(x => x.Day == DateTime.Today.DayOfWeek);
 
         if (hours is null || !hours.IsOpen)
             return "Stängt idag";
 
         return $"{hours.Open:hh\\:mm} - {hours.Close:hh\\:mm}";
-    }
-
-    private string DisplayUserName()
-    {
-        if (currentUser is null)
-            return "";
-
-        var fullName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
-
-        return string.IsNullOrWhiteSpace(fullName)
-            ? currentUser.Email ?? "konto"
-            : fullName;
-    }
-
-    private static string DisplayOrFallback(string? value, string fallback)
-    {
-        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 
     private string GetInitials()
@@ -918,6 +461,11 @@ else
         var overlay = CssValue(business.HeroOverlayColor, "rgba(0,0,0,.55)");
 
         return $"background-image:linear-gradient({overlay},{overlay}), url('{business.CoverImageUrl}'); background-position:center; background-size:cover; color:{heroText};";
+    }
+
+    private static string DisplayOrFallback(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 
     private static string CssValue(string? value, string fallback)
