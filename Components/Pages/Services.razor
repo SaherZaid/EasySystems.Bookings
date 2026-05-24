@@ -80,14 +80,15 @@ else
                                 <strong>@service.Price.ToString("0.00") kr</strong>
                             </div>
 
-                            <a class="services-page-btn" href="/booking">Boka ny tid</a>
+                            <a class="services-page-btn" href="/booking?serviceId=@service.Id">
+                                Boka ny tid
+                            </a>
                         </article>
                     }
                 </section>
             }
         </main>
 
-        
     </div>
 }
 
