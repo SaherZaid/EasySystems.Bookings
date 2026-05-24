@@ -9461,7 +9461,7 @@ h1:focus {
     .home-feature-card span {
         width: 46px;
         height: 46px;
-        border-radius: 16px;
+        border-radius: 50px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -9741,3 +9741,199 @@ h1:focus {
         opacity: .92;
         transform: translateY(-2px);
     }
+
+.home-section-heading {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+    .home-section-heading span {
+        color: var(--public-secondary);
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+    }
+
+    .home-section-heading h2 {
+        margin-top: 12px;
+        font-size: clamp(32px,4vw,48px);
+        font-weight: 950;
+        color: var(--public-heading);
+    }
+
+    .home-section-heading p {
+        max-width: 700px;
+        margin: 12px auto 0;
+    }
+
+.home-feature-services,
+.home-team-section,
+.home-steps-section,
+.home-benefits-section {
+    margin-top: 90px;
+}
+
+.home-services-grid,
+.home-benefits-grid,
+.home-steps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit,minmax(260px,1fr));
+    gap: 24px;
+}
+
+.home-service-card,
+.home-benefit-card,
+.home-step-card {
+    background: var(--public-card-bg);
+    border-radius: 28px;
+    padding: 28px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.06);
+}
+
+.home-service-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 220px;
+}
+
+.home-service-footer {
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+    .home-service-footer strong {
+        color: var(--public-price);
+        font-size: 20px;
+    }
+
+.home-step-number {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--public-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 900;
+    margin-bottom: 20px;
+}
+
+.home-center-btn {
+    display: flex;
+    justify-content: center;
+    margin-top: 40px;
+}
+
+.home-book-now-card {
+    max-width: 900px;
+    margin: 100px auto 0;
+    padding: 70px 50px;
+    text-align: center;
+    background: var(--public-card-bg);
+    border-radius: 40px;
+    box-shadow: 0 30px 90px rgba(0,0,0,.08);
+}
+
+    .home-book-now-card h2 {
+        margin-top: 16px;
+        margin-bottom: 16px;
+        font-size: clamp(34px,5vw,60px);
+        font-weight: 950;
+        color: var(--public-heading);
+    }
+
+    .home-book-now-card p {
+        max-width: 650px;
+        margin: 0 auto 30px;
+    }
+
+.home-premium-cta {
+    margin-top: 44px;
+    padding: 34px;
+    border-radius: 34px;
+    background: radial-gradient(circle at top left, rgba(255,255,255,.42), transparent 34%), linear-gradient(135deg, var(--public-primary), var(--public-secondary));
+    color: white;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 28px;
+    align-items: center;
+    box-shadow: 0 28px 90px rgba(17, 24, 39, .16);
+    overflow: hidden;
+}
+
+.home-premium-cta-content {
+    max-width: 680px;
+}
+
+.home-premium-kicker {
+    display: inline-flex;
+    margin-bottom: 12px;
+    font-size: 13px;
+    font-weight: 950;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    opacity: .9;
+}
+
+.home-premium-cta h2 {
+    margin: 0;
+    font-size: clamp(30px, 4vw, 52px);
+    line-height: 1.02;
+    letter-spacing: -.045em;
+    font-weight: 950;
+}
+
+.home-premium-cta p {
+    margin: 14px 0 0;
+    max-width: 560px;
+    font-size: 17px;
+    line-height: 1.7;
+    opacity: .9;
+}
+
+.home-premium-cta-actions {
+    display: grid;
+    gap: 12px;
+    min-width: 210px;
+}
+
+.home-premium-primary-btn,
+.home-premium-secondary-btn {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 15px 20px;
+    border-radius: 18px;
+    text-decoration: none;
+    font-weight: 950;
+    text-align: center;
+}
+
+.home-premium-primary-btn {
+    background: var(--public-button-bg);
+    color: var(--public-button-text);
+}
+
+.home-premium-secondary-btn {
+    background: rgba(255,255,255,.16);
+    color: white;
+    border: 1px solid rgba(255,255,255,.28);
+}
+
+@media (max-width: 820px) {
+    .home-premium-cta {
+        grid-template-columns: 1fr;
+        padding: 26px;
+    }
+
+    .home-premium-cta-actions {
+        min-width: 0;
+    }
+}

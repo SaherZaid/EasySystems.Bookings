@@ -4,6 +4,7 @@
 @using EasySystems.Bookings.Data
 @using EasySystems.Bookings.Data.Entities
 @using EasySystems.Bookings.Services
+@using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
@@ -336,11 +337,17 @@ else
             <strong>@GetFloatingSummaryText()</strong>
         </button>
 
-        
+        <BusinessFooter Business="business" />
     </div>
 }
 
 @code {
+    [SupplyParameterFromQuery(Name = "serviceId")]
+    public int? ServiceId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "staffId")]
+    public int? StaffId { get; set; }
+
     private bool isLoading = true;
     private bool isSubmitting;
     private bool showSummary;
@@ -413,10 +420,24 @@ else
 
         ResetBookingForm();
         PrefillCustomerFromAccount();
+        ApplyQuerySelections();
 
         await LoadAvailableTimesAsync();
 
         isLoading = false;
+    }
+
+    private void ApplyQuerySelections()
+    {
+        if (ServiceId.HasValue && services.Any(x => x.Id == ServiceId.Value))
+        {
+            booking.ServiceId = ServiceId.Value;
+        }
+
+        if (StaffId.HasValue && staffMembers.Any(x => x.Id == StaffId.Value))
+        {
+            booking.StaffMemberId = StaffId.Value;
+        }
     }
 
     private void OpenSummary()
@@ -486,12 +507,18 @@ else
         var dayHours = GetHoursForDate(bookingDate);
 
         if (dayHours is null || !dayHours.IsOpen)
+        {
+            bookingTime = TimeSpan.Zero;
             return;
+        }
 
         var service = services.FirstOrDefault(s => s.Id == booking.ServiceId);
 
         if (service is null || booking.StaffMemberId == 0)
+        {
+            bookingTime = TimeSpan.Zero;
             return;
+        }
 
         await using var db = await DbFactory.CreateDbContextAsync();
 
@@ -559,6 +586,12 @@ else
                 return;
             }
 
+            if (!business.IsActive || !business.AllowOnlineBookings)
+            {
+                errorMessage = "Verksamheten tar inte emot onlinebokningar just nu.";
+                return;
+            }
+
             booking.CustomerName = booking.CustomerName?.Trim() ?? "";
             booking.CustomerEmail = booking.CustomerEmail?.Trim();
             booking.CustomerPhone = booking.CustomerPhone?.Trim();
@@ -617,6 +650,13 @@ else
                 return;
             }
 
+            if (startTime.TimeOfDay < dayHours.Open ||
+                endTime.TimeOfDay > dayHours.Close)
+            {
+                errorMessage = $"Tiden måste vara inom öppettiderna: {dayHours.Open:hh\\:mm} - {dayHours.Close:hh\\:mm}.";
+                return;
+            }
+
             var hasConflict = await db.Bookings.AnyAsync(b =>
                 b.BusinessId == business.Id &&
                 b.StaffMemberId == staff.Id &&
@@ -627,6 +667,13 @@ else
             if (hasConflict)
             {
                 errorMessage = "Tiden är redan bokad. Välj en annan tid.";
+                await LoadAvailableTimesAsync();
+                return;
+            }
+
+            if (!availableTimes.Contains(bookingTime))
+            {
+                errorMessage = "Välj en ledig tid från listan.";
                 await LoadAvailableTimesAsync();
                 return;
             }
@@ -709,8 +756,11 @@ else
 
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            LoggerFactory.CreateLogger("BookingEmail")
+                .LogError(ex, "Could not send booking emails for booking {BookingId}", bookingId);
+
             return false;
         }
     }
@@ -738,19 +788,28 @@ else
     private string GetSelectedDayHoursLabel()
     {
         var hours = GetHoursForDate(bookingDate);
-        return hours is null || !hours.IsOpen ? "Stängt" : $"{hours.Open:hh\\:mm} - {hours.Close:hh\\:mm}";
+
+        return hours is null || !hours.IsOpen
+            ? "Stängt"
+            : $"{hours.Open:hh\\:mm} - {hours.Close:hh\\:mm}";
     }
 
     private string GetSelectedServiceText()
     {
         var service = services.FirstOrDefault(x => x.Id == booking.ServiceId);
-        return service is null ? "Välj tjänst" : $"{service.Name} · {service.DurationMinutes} min · {service.Price:0.00} kr";
+
+        return service is null
+            ? "Välj tjänst"
+            : $"{service.Name} · {service.DurationMinutes} min · {service.Price:0.00} kr";
     }
 
     private string GetSelectedStaffText()
     {
         var staff = staffMembers.FirstOrDefault(x => x.Id == booking.StaffMemberId);
-        return staff is null ? "Välj personal" : staff.FullName;
+
+        return staff is null
+            ? "Välj personal"
+            : staff.FullName;
     }
 
     private string GetShortSummaryText()

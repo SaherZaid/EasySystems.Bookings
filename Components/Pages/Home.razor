@@ -81,47 +81,29 @@ else
 
         <main class="public-booking-shell home-landing-shell">
 
-            <section class="public-info-grid home-landing-info-grid">
-                <div class="public-info-card">
-                    <span>Idag</span>
-                    <strong>@(isLoading ? "Laddar..." : GetTodayHoursLabel())</strong>
-                    <p>@DateTime.Today.ToString("dddd d MMMM", SwedishCulture)</p>
-                </div>
-
-                <div class="public-info-card">
-                    <span>Plats</span>
-                    <strong>@(isLoading ? "Laddar..." : DisplayOrFallback(business?.City, "Ej angiven"))</strong>
-                    <p>@(isLoading ? "Laddar adress..." : DisplayOrFallback(business?.Address, "Adress saknas"))</p>
-                </div>
-
-                <div class="public-info-card">
-                    <span>Kontakt</span>
-                    <strong>@(isLoading ? "Laddar..." : DisplayOrFallback(business?.Phone, "Telefon saknas"))</strong>
-                    <p>@(isLoading ? "Laddar kontakt..." : DisplayOrFallback(business?.Email, "E-post saknas"))</p>
-                </div>
-            </section>
+            
 
             <section class="home-section">
                 <div class="public-section-header home-centered-header">
                     <p>Så fungerar det</p>
-                    <h2>Enkel bokning från start till klart</h2>
+                    <h2>Boka på några sekunder</h2>
                 </div>
 
                 <div class="home-feature-grid">
                     <article class="home-feature-card">
-                        <span>01</span>
+                        <span>1</span>
                         <h3>Välj tjänst</h3>
                         <p>Se vilka tjänster som finns tillgängliga och välj det som passar dig bäst.</p>
                     </article>
 
                     <article class="home-feature-card">
-                        <span>02</span>
+                        <span>2</span>
                         <h3>Välj tid</h3>
                         <p>Hitta en ledig tid direkt online baserat på öppettider och personal.</p>
                     </article>
 
                     <article class="home-feature-card">
-                        <span>03</span>
+                        <span>3</span>
                         <h3>Skicka bokning</h3>
                         <p>Skicka din bokningsförfrågan och få detaljerna skickade till dig.</p>
                     </article>
@@ -152,7 +134,7 @@ else
                 else
                 {
                     <div class="home-services-grid">
-                        @foreach (var service in services.Take(4))
+                        @foreach (var service in services.Take(6))
                         {
                             <article class="home-service-card">
                                 <div>
@@ -169,49 +151,16 @@ else
                                     <strong>@service.Price.ToString("0.00") kr</strong>
                                 </div>
 
-                                <a href="/booking">Boka</a>
+                                <a href="/booking?serviceId=@service.Id">
+                                    Boka
+                                </a>
                             </article>
                         }
                     </div>
                 }
             </section>
 
-            <section class="home-split-section">
-                <div class="home-about-card">
-                    <div class="public-section-header">
-                        <p>Om oss</p>
-                        <h2>@DisplayOrFallback(business?.Name, "EasyBookings")</h2>
-                    </div>
-
-                    <p>
-                        @DisplayOrFallback(
-                                 business?.Description,
-                                 "Här kan kunder boka tider online, se tjänster, öppettider och kontaktuppgifter på ett enkelt sätt.")
-                    </p>
-
-                    <div class="home-about-actions">
-                        <a class="public-primary-link" href="/booking">Boka ny tid</a>
-                        <a class="public-booking-light-btn" href="/hours">Kontakt & öppettider</a>
-                    </div>
-                </div>
-
-                <div class="home-hours-card">
-                    <div class="public-section-header">
-                        <p>Öppettider</p>
-                        <h2>Den här veckan</h2>
-                    </div>
-
-                    <div class="public-hours-list">
-                        @foreach (var day in weeklyHours)
-                        {
-                            <div class="public-hours-row @(day.Day == DateTime.Today.DayOfWeek ? "today" : "")">
-                                <span>@day.Label</span>
-                                <strong>@(day.IsOpen ? $"{day.Open:hh\\:mm} - {day.Close:hh\\:mm}" : "Stängt")</strong>
-                            </div>
-                        }
-                    </div>
-                </div>
-            </section>
+            
 
             @if (staffMembers.Any())
             {
@@ -259,7 +208,8 @@ else
                                             <p>Redo att hjälpa dig med din bokning.</p>
                                         }
 
-                                        <a href="/booking" class="home-team-btn">
+                                        <a href="/booking?staffId=@staff.Id"
+                                           class="home-team-btn">
                                             Boka tid
                                         </a>
                                     </div>
@@ -270,17 +220,56 @@ else
                 </section>
             }
 
-            <section class="home-final-cta" style="@GetHeroStyle()">
-                <div>
-                    <span class="public-booking-pill">Redo?</span>
-                    <h2>Boka din nästa tid online</h2>
-                    <p>Välj tjänst, personal och en ledig tid som passar dig.</p>
+            <section class="home-premium-cta">
+                <div class="home-premium-cta-content">
+                    <span class="home-premium-kicker">Redo för nästa steg?</span>
 
-                    <div class="public-booking-hero-actions">
-                        <a href="/booking" class="public-primary-link">Boka ny tid</a>
-                        <a href="/services" class="public-booking-light-btn">Se tjänster</a>
-                    </div>
+                    <h2>Boka din nästa tid på ett enklare sätt</h2>
+
+                    <p>
+                        Välj tjänst, personal och en ledig tid direkt online utan krångel.
+                    </p>
                 </div>
+
+                <div class="home-premium-cta-actions">
+                    <a href="/booking" class="home-premium-primary-btn">
+                        Boka tid nu
+                    </a>
+
+                    <a href="/services" class="home-premium-secondary-btn">
+                        Se tjänster
+                    </a>
+                </div>
+            </section>
+
+        
+
+            <section class="home-benefits-section">
+
+                <div class="home-section-heading">
+                    <span>Varför välja oss</span>
+                    <h2>En smidigare bokningsupplevelse</h2>
+                </div>
+
+                <div class="home-benefits-grid">
+
+                    <article class="home-benefit-card">
+                        <h3>Onlinebokning 24/7</h3>
+                        <p>Boka när som helst direkt från mobilen.</p>
+                    </article>
+
+                    <article class="home-benefit-card">
+                        <h3>Professionell personal</h3>
+                        <p>Erfaren personal som hjälper dig hela vägen.</p>
+                    </article>
+
+                    <article class="home-benefit-card">
+                        <h3>Snabb bekräftelse</h3>
+                        <p>Få bokningsinformation direkt via e-post.</p>
+                    </article>
+
+                </div>
+
             </section>
 
         </main>
