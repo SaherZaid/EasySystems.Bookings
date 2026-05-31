@@ -62,20 +62,23 @@ else
             <div class="service-form-grid">
 
                 <section class="service-form-card">
-                    <EditForm Model="service" OnValidSubmit="CreateAsync">
+                    <EditForm Model="service" OnValidSubmit="CreateAsync" OnInvalidSubmit="HandleInvalidSubmit">
                         <DataAnnotationsValidator />
+                        <ValidationSummary class="settings-alert error" />
 
                         <div class="service-form-section">
                             <h2>Grundinformation</h2>
 
                             <label>Tjänstens namn</label>
                             <InputText class="settings-input" @bind-Value="service.Name" placeholder="Exempel: Klippning" />
+                            <ValidationMessage For="@(() => service.Name)" />
 
                             <label>Beskrivning</label>
                             <InputTextArea class="settings-input settings-textarea"
                                            rows="5"
                                            @bind-Value="service.Description"
                                            placeholder="Beskriv vad kunden får i tjänsten..." />
+                            <ValidationMessage For="@(() => service.Description)" />
                         </div>
 
                         <div class="service-form-section">
@@ -85,18 +88,21 @@ else
                                 <div>
                                     <label>Pris</label>
                                     <InputNumber class="settings-input" @bind-Value="service.Price" />
+                                    <ValidationMessage For="@(() => service.Price)" />
                                     <small>Exempel: 350</small>
                                 </div>
 
                                 <div>
                                     <label>Tid i minuter</label>
                                     <InputNumber class="settings-input" @bind-Value="service.DurationMinutes" />
+                                    <ValidationMessage For="@(() => service.DurationMinutes)" />
                                     <small>Exempel: 30, 45, 60</small>
                                 </div>
 
                                 <div>
                                     <label>Sortering</label>
                                     <InputNumber class="settings-input" @bind-Value="service.SortOrder" />
+                                    <ValidationMessage For="@(() => service.SortOrder)" />
                                     <small>Lägre nummer visas först.</small>
                                 </div>
                             </div>
@@ -136,7 +142,7 @@ else
 
                     <div class="service-preview-box">
                         <div>
-                            <span class="service-preview-pill">
+                            <span class="service-preview-pill @(service.IsActive ? "active" : "inactive")">
                                 @(service.IsActive ? "Aktiv" : "Inaktiv")
                             </span>
 
@@ -216,8 +222,7 @@ else
         errorMessage = null;
         isSaving = true;
 
-        service.Name = service.Name.Trim();
-        service.Description = service.Description?.Trim();
+        NormalizeService();
 
         if (!ValidateService())
         {
@@ -232,6 +237,18 @@ else
         await Db.SaveChangesAsync();
 
         Navigation.NavigateTo($"/admin/businesses/{BusinessId}/services");
+    }
+
+    private void HandleInvalidSubmit()
+    {
+        isSaving = false;
+        errorMessage = "Kontrollera fälten. Något är fel eller saknas.";
+    }
+
+    private void NormalizeService()
+    {
+        service.Name = service.Name?.Trim() ?? string.Empty;
+        service.Description = service.Description?.Trim();
     }
 
     private bool ValidateService()

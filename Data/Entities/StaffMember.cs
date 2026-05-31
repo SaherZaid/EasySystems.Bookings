@@ -8,16 +8,18 @@ public class StaffMember
 
     public int BusinessId { get; set; }
 
-    [Required]
-    [MaxLength(150)]
+    [Required(ErrorMessage = "Fullständigt namn krävs.")]
+    [MaxLength(150, ErrorMessage = "Namnet får vara max 150 tecken.")]
     public string FullName { get; set; } = string.Empty;
 
-    [MaxLength(150)]
-    [EmailAddress]
+    [MaxLength(150, ErrorMessage = "E-post får vara max 150 tecken.")]
+    [EmailAddress(ErrorMessage = "Ange en giltig e-postadress.")]
     public string? Email { get; set; }
 
-    [MaxLength(30)]
-    public string? Phone { get; set; }
+    [Required(ErrorMessage = "Telefonnummer krävs.")]
+    [MaxLength(30, ErrorMessage = "Telefonnummer får vara max 30 tecken.")]
+    [RegularExpression(@"^[0-9+\-\s()]{6,30}$", ErrorMessage = "Ange ett giltigt telefonnummer.")]
+    public string Phone { get; set; } = string.Empty;
 
     [MaxLength(250)]
     public string? Specialization { get; set; }

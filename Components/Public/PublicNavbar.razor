@@ -61,18 +61,18 @@
                 Boka ny tid
             </a>
 
-            <a href="/hours"
-               class="@GetActiveClass("/hours")"
-               data-enhance-nav="false"
-               @onclick="CloseAllMenus">
-                Öppettider/Kontakt
-            </a>
-
             <a href="/services"
                class="@GetActiveClass("/services")"
                data-enhance-nav="false"
                @onclick="CloseAllMenus">
                 Tjänster
+            </a>
+
+            <a href="/hours"
+               class="@GetActiveClass("/hours")"
+               data-enhance-nav="false"
+               @onclick="CloseAllMenus">
+                Öppettider/Kontakt
             </a>
 
             <div class="public-navbar-dropdown">
@@ -84,21 +84,6 @@
                 </button>
 
                 <div class="public-navbar-dropdown-menu @(isMoreOpen ? "open" : "")">
-                    <a href="/privacy"
-                       class="@GetActiveClass("/privacy")"
-                       data-enhance-nav="false"
-                       @onclick="CloseAllMenus">
-                        Integritet
-                    </a>
-
-                    
-
-                    <a href="/terms"
-                       class="@GetActiveClass("/terms")"
-                       data-enhance-nav="false"
-                       @onclick="CloseAllMenus">
-                        Villkor
-                    </a>
 
                     @if (isAuthenticated)
                     {
@@ -118,6 +103,23 @@
                             Mina bokningar
                         </a>
                     }
+
+                    <a href="/privacy"
+                       class="@GetActiveClass("/privacy")"
+                       data-enhance-nav="false"
+                       @onclick="CloseAllMenus">
+                        Integritet
+                    </a>
+
+                    
+
+                    <a href="/terms"
+                       class="@GetActiveClass("/terms")"
+                       data-enhance-nav="false"
+                       @onclick="CloseAllMenus">
+                        Villkor
+                    </a>
+
                 </div>
             </div>
 

@@ -66,22 +66,26 @@ else
             <div class="staff-form-grid">
 
                 <section class="staff-form-card">
-                    <EditForm Model="staffMember" OnValidSubmit="SaveAsync">
+                    <EditForm Model="staffMember" OnValidSubmit="SaveAsync" OnInvalidSubmit="HandleInvalidSubmit">
                         <DataAnnotationsValidator />
+                        <ValidationSummary class="settings-alert error" />
 
                         <div class="staff-form-section">
                             <h2>Grundinformation</h2>
 
                             <label>Fullständigt namn</label>
                             <InputText class="settings-input" @bind-Value="staffMember.FullName" />
+                            <ValidationMessage For="@(() => staffMember.FullName)" />
 
                             <label>Specialisering</label>
                             <InputText class="settings-input" @bind-Value="staffMember.Specialization" />
+                            <ValidationMessage For="@(() => staffMember.Specialization)" />
 
                             <label>Presentation</label>
                             <InputTextArea class="settings-input settings-textarea"
                                            rows="5"
                                            @bind-Value="staffMember.Bio" />
+                            <ValidationMessage For="@(() => staffMember.Bio)" />
                         </div>
 
                         <div class="staff-form-section">
@@ -91,11 +95,13 @@ else
                                 <div>
                                     <label>E-post</label>
                                     <InputText class="settings-input" @bind-Value="staffMember.Email" />
+                                    <ValidationMessage For="@(() => staffMember.Email)" />
                                 </div>
 
                                 <div>
                                     <label>Telefon</label>
                                     <InputText class="settings-input" @bind-Value="staffMember.Phone" />
+                                    <ValidationMessage For="@(() => staffMember.Phone)" />
                                 </div>
                             </div>
                         </div>
@@ -144,6 +150,7 @@ else
 
                             <label>Sortering</label>
                             <InputNumber class="settings-input" @bind-Value="staffMember.SortOrder" />
+                            <ValidationMessage For="@(() => staffMember.SortOrder)" />
                         </div>
 
                         <div class="staff-form-section">
@@ -268,6 +275,7 @@ else
             return;
 
         errorMessage = null;
+        successMessage = null;
 
         var file = e.File;
         var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
@@ -307,6 +315,7 @@ else
             staffMember.ImageUrl = null;
         }
     }
+
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
@@ -357,12 +366,19 @@ else
         isSaving = false;
     }
 
+    private void HandleInvalidSubmit()
+    {
+        isSaving = false;
+        successMessage = null;
+        errorMessage = "Kontrollera fälten. Något är fel eller saknas.";
+    }
+
     private void NormalizeStaff()
     {
         if (staffMember is null)
             return;
 
-        staffMember.FullName = staffMember.FullName.Trim();
+        staffMember.FullName = staffMember.FullName?.Trim() ?? string.Empty;
         staffMember.Email = staffMember.Email?.Trim();
         staffMember.Phone = staffMember.Phone?.Trim();
         staffMember.Specialization = staffMember.Specialization?.Trim();
@@ -374,7 +390,7 @@ else
     {
         if (staffMember is null)
             return false;
-            
+
         if (string.IsNullOrWhiteSpace(staffMember.FullName))
         {
             errorMessage = "Fullständigt namn krävs.";
