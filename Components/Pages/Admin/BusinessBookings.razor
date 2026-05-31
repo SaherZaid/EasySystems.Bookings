@@ -47,7 +47,7 @@ else
 
             <section class="admin-hero">
                 <div>
-                    <p class="admin-eyebrow">Bokningar</p>
+                    <p class="admin-eyebrow">Bokningar & försäljning</p>
                     <h1>@business.Name</h1>
                     <p>@GetBusinessSubtitle()</p>
                 </div>
@@ -70,38 +70,24 @@ else
                 </div>
             </section>
 
-            <section class="booking-stat-grid">
-                <div class="booking-stat-card">
-                    <span>Totalt</span>
-                    <strong>@bookings.Count</strong>
-                    <p>Alla bokningar</p>
-                </div>
-
-                <div class="booking-stat-card">
-                    <span>Idag</span>
-                    <strong>@TodayCount</strong>
-                    <p>@DateTime.Today.ToString("yyyy-MM-dd")</p>
-                </div>
-
-                <div class="booking-stat-card">
-                    <span>Väntar</span>
-                    <strong>@PendingCount</strong>
-                    <p>Behöver hanteras</p>
-                </div>
-
-                <div class="booking-stat-card">
-                    <span>Betalda</span>
-                    <strong>@PaidCount</strong>
-                    <p>@PaidAmount.ToString("0.00") kr</p>
-                </div>
-            </section>
-
-            <section class="booking-toolbar">
-                <div class="booking-search">
+            <section class="booking-toolbar advanced">
+                <div class="booking-search wide">
                     <label>Sök</label>
                     <input @bind="searchText"
                            @bind:event="oninput"
-                           placeholder="Kund, e-post, telefon, tjänst eller personal..." />
+                           placeholder="Kund, e-post, telefon, tjänst, personal eller anteckning..." />
+                </div>
+
+                <div class="booking-filter">
+                    <label>Period</label>
+                    <select @bind="periodFilter">
+                        <option value="all">Alla perioder</option>
+                        <option value="today">Idag</option>
+                        <option value="week">Denna vecka</option>
+                        <option value="month">Denna månad</option>
+                        <option value="next30">Nästa 30 dagar</option>
+                        <option value="past">Tidigare</option>
+                    </select>
                 </div>
 
                 <div class="booking-filter">
@@ -124,17 +110,168 @@ else
                 </div>
 
                 <div class="booking-filter">
-                    <label>Tid</label>
-                    <select @bind="timeFilter">
-                        <option value="">Alla tider</option>
-                        <option value="today">Idag</option>
-                        <option value="upcoming">Kommande</option>
-                        <option value="past">Tidigare</option>
+                    <label>Tjänst</label>
+                    <select @bind="serviceFilter">
+                        <option value="">Alla tjänster</option>
+                        @foreach (var service in ServicesForFilter)
+                        {
+                            <option value="@service">@service</option>
+                        }
                     </select>
+                </div>
+
+                <div class="booking-filter">
+                    <label>Personal</label>
+                    <select @bind="staffFilter">
+                        <option value="">All personal</option>
+                        @foreach (var staff in StaffForFilter)
+                        {
+                            <option value="@staff">@staff</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="booking-filter action-filter">
+                    <label>&nbsp;</label>
+                    <button type="button" class="admin-secondary-btn" @onclick="ResetFilters">
+                        Rensa filter
+                    </button>
                 </div>
             </section>
 
-            @if (!FilteredBookings.Any())
+            <section class="booking-stat-grid">
+                <div class="booking-stat-card">
+                    <span>Resultat</span>
+                    <strong>@FilteredCount</strong>
+                    <p>bokningar i aktuell filtrering</p>
+                </div>
+
+                <div class="booking-stat-card">
+                    <span>Betalt</span>
+                    <strong>@FilteredPaidAmount.ToString("0.00") kr</strong>
+                    <p>@FilteredPaidCount bokningar · @FilteredPaymentRate.ToString("0")%</p>
+                </div>
+
+                <div class="booking-stat-card">
+                    <span>Obetalt</span>
+                    <strong>@FilteredUnpaidPotential.ToString("0.00") kr</strong>
+                    <p>@FilteredUnpaidCount bokningar</p>
+                </div>
+
+                <div class="booking-stat-card">
+                    <span>Väntar</span>
+                    <strong>@FilteredPendingCount</strong>
+                    <p>behöver hanteras</p>
+                </div>
+
+                <div class="booking-stat-card">
+                    <span>Kommande</span>
+                    <strong>@FilteredUpcomingCount</strong>
+                    <p>framtida bokningar</p>
+                </div>
+
+                <div class="booking-stat-card">
+                    <span>Avbokade</span>
+                    <strong>@FilteredCancelledCount</strong>
+                    <p>förlorade bokningar</p>
+                </div>
+
+                <div class="booking-stat-card">
+                    <span>Snittvärde</span>
+                    <strong>@FilteredAverageValue.ToString("0.00") kr</strong>
+                    <p>per betald bokning</p>
+                </div>
+
+                <div class="booking-stat-card">
+                    <span>Total potential</span>
+                    <strong>@FilteredTotalPotential.ToString("0.00") kr</strong>
+                    <p>betalt + obetalt</p>
+                </div>
+            </section>
+
+            <section class="booking-sales-grid">
+                <div class="booking-sales-card">
+                    <div class="booking-section-title">
+                        <div>
+                            <span>Försäljning</span>
+                            <h2>Översikt baserat på filter</h2>
+                        </div>
+                    </div>
+
+                    <div class="booking-kpi-list">
+                        <div>
+                            <span>Betalt</span>
+                            <strong>@FilteredPaidAmount.ToString("0.00") kr</strong>
+                        </div>
+                        <div>
+                            <span>Obetalt värde</span>
+                            <strong>@FilteredUnpaidPotential.ToString("0.00") kr</strong>
+                        </div>
+                        <div>
+                            <span>Total potential</span>
+                            <strong>@FilteredTotalPotential.ToString("0.00") kr</strong>
+                        </div>
+                        <div>
+                            <span>Betalningsgrad</span>
+                            <strong>@FilteredPaymentRate.ToString("0")%</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="booking-sales-card">
+                    <div class="booking-section-title">
+                        <div>
+                            <span>Populärast</span>
+                            <h2>Tjänster</h2>
+                        </div>
+                    </div>
+
+                    @if (!TopServices.Any())
+                    {
+                        <p class="booking-muted-text">Ingen statistik ännu.</p>
+                    }
+                    else
+                    {
+                        <div class="booking-ranking-list">
+                            @foreach (var item in TopServices)
+                            {
+                                <div>
+                                    <span>@item.Name</span>
+                                    <strong>@item.Count bokningar · @item.Revenue.ToString("0.00") kr</strong>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="booking-sales-card">
+                    <div class="booking-section-title">
+                        <div>
+                            <span>Prestation</span>
+                            <h2>Personal</h2>
+                        </div>
+                    </div>
+
+                    @if (!TopStaff.Any())
+                    {
+                        <p class="booking-muted-text">Ingen statistik ännu.</p>
+                    }
+                    else
+                    {
+                        <div class="booking-ranking-list">
+                            @foreach (var item in TopStaff)
+                            {
+                                <div>
+                                    <span>@item.Name</span>
+                                    <strong>@item.Count bokningar · @item.Revenue.ToString("0.00") kr</strong>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </section>
+
+            @if (!FilteredBookingList.Any())
             {
                 <div class="admin-empty-card">
                     <h2>Inga bokningar hittades</h2>
@@ -148,7 +285,7 @@ else
             else
             {
                 <section class="booking-card-list">
-                    @foreach (var booking in FilteredBookings)
+                    @foreach (var booking in FilteredBookingList)
                     {
                         <article class="booking-card">
                             <div class="booking-card-main">
@@ -210,7 +347,9 @@ else
                                         <div>
                                             <span>Betalning</span>
                                             <strong>
-                                                @(booking.IsPaid ? $"{booking.PaidAmount:0.00} kr" : "Ej betald")
+                                                @(booking.IsPaid
+                                                    ? $"{booking.PaidAmount:0.00} kr"
+                                                    : $"{booking.Service.Price:0.00} kr obetalt")
                                             </strong>
                                             <small>
                                                 @(string.IsNullOrWhiteSpace(booking.PaymentMethod)
@@ -249,30 +388,103 @@ else
     private string searchText = "";
     private string statusFilter = "";
     private string paymentFilter = "";
-    private string timeFilter = "";
+    private string periodFilter = "month";
+    private string serviceFilter = "";
+    private string staffFilter = "";
 
-    private static readonly System.Globalization.CultureInfo SwedishCulture =
-        new("sv-SE");
+    private static readonly System.Globalization.CultureInfo SwedishCulture = new("sv-SE");
+
+    private List<string> ServicesForFilter =>
+        bookings
+            .Where(b => b.Service is not null)
+            .Select(b => b.Service.Name)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct()
+            .OrderBy(x => x)
+            .ToList();
+
+    private List<string> StaffForFilter =>
+        bookings
+            .Where(b => b.StaffMember is not null)
+            .Select(b => b.StaffMember.FullName)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct()
+            .OrderBy(x => x)
+            .ToList();
 
     private IEnumerable<Booking> FilteredBookings =>
         bookings
             .Where(MatchesSearch)
             .Where(MatchesStatus)
             .Where(MatchesPayment)
-            .Where(MatchesTime)
+            .Where(MatchesPeriod)
+            .Where(MatchesService)
+            .Where(MatchesStaff)
             .OrderByDescending(b => b.StartTime);
 
-    private int TodayCount =>
-        bookings.Count(b => b.StartTime.Date == DateTime.Today);
+    private List<Booking> FilteredBookingList =>
+        FilteredBookings.ToList();
 
-    private int PendingCount =>
-        bookings.Count(b => string.Equals(b.Status, "Pending", StringComparison.OrdinalIgnoreCase));
+    private int FilteredCount =>
+        FilteredBookingList.Count;
 
-    private int PaidCount =>
-        bookings.Count(b => b.IsPaid);
+    private int FilteredPaidCount =>
+        FilteredBookingList.Count(b => b.IsPaid);
 
-    private decimal PaidAmount =>
-        bookings.Where(b => b.IsPaid).Sum(b => b.PaidAmount);
+    private int FilteredUnpaidCount =>
+        FilteredBookingList.Count(b => !b.IsPaid && !IsCancelled(b));
+
+    private int FilteredPendingCount =>
+        FilteredBookingList.Count(b => string.Equals(b.Status, "Pending", StringComparison.OrdinalIgnoreCase));
+
+    private int FilteredUpcomingCount =>
+        FilteredBookingList.Count(b => b.StartTime >= DateTime.Now && !IsCancelled(b));
+
+    private int FilteredCancelledCount =>
+        FilteredBookingList.Count(IsCancelled);
+
+    private decimal FilteredPaidAmount =>
+        FilteredBookingList
+            .Where(b => b.IsPaid && !IsCancelled(b))
+            .Sum(b => b.PaidAmount);
+
+    private decimal FilteredUnpaidPotential =>
+        FilteredBookingList
+            .Where(b => !b.IsPaid && !IsCancelled(b))
+            .Sum(b => b.Service.Price);
+
+    private decimal FilteredTotalPotential =>
+        FilteredPaidAmount + FilteredUnpaidPotential;
+
+    private decimal FilteredAverageValue =>
+        FilteredPaidCount == 0 ? 0 : FilteredPaidAmount / FilteredPaidCount;
+
+    private decimal FilteredPaymentRate =>
+        FilteredCount == 0 ? 0 : ((decimal)FilteredPaidCount / FilteredCount) * 100;
+
+    private IEnumerable<SalesRankingItem> TopServices =>
+        FilteredBookingList
+            .Where(b => !IsCancelled(b))
+            .GroupBy(b => b.Service.Name)
+            .Select(g => new SalesRankingItem(
+                g.Key,
+                g.Count(),
+                g.Sum(b => b.IsPaid ? b.PaidAmount : 0)))
+            .OrderByDescending(x => x.Revenue)
+            .ThenByDescending(x => x.Count)
+            .Take(5);
+
+    private IEnumerable<SalesRankingItem> TopStaff =>
+        FilteredBookingList
+            .Where(b => !IsCancelled(b))
+            .GroupBy(b => b.StaffMember.FullName)
+            .Select(g => new SalesRankingItem(
+                g.Key,
+                g.Count(),
+                g.Sum(b => b.IsPaid ? b.PaidAmount : 0)))
+            .OrderByDescending(x => x.Revenue)
+            .ThenByDescending(x => x.Count)
+            .Take(5);
 
     protected override async Task OnInitializedAsync()
     {
@@ -302,11 +514,11 @@ else
 
         var term = searchText.Trim();
 
-        return booking.CustomerName.Contains(term, StringComparison.OrdinalIgnoreCase)
+        return (booking.CustomerName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
             || (booking.CustomerEmail?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
             || (booking.CustomerPhone?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
-            || booking.Service.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
-            || booking.StaffMember.FullName.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || (booking.Service?.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (booking.StaffMember?.FullName.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
             || (booking.Notes?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false);
     }
 
@@ -328,17 +540,48 @@ else
         };
     }
 
-    private bool MatchesTime(Booking booking)
+    private bool MatchesPeriod(Booking booking)
     {
         var today = DateTime.Today;
+        var now = DateTime.Now;
+        var startOfWeek = StartOfWeek(today);
+        var startOfMonth = new DateTime(today.Year, today.Month, 1);
 
-        return timeFilter switch
+        return periodFilter switch
         {
             "today" => booking.StartTime.Date == today,
-            "upcoming" => booking.StartTime >= DateTime.Now,
-            "past" => booking.StartTime < DateTime.Now,
+            "week" => booking.StartTime.Date >= startOfWeek,
+            "month" => booking.StartTime.Date >= startOfMonth,
+            "next30" => booking.StartTime >= now && booking.StartTime <= now.AddDays(30),
+            "past" => booking.StartTime < now,
             _ => true
         };
+    }
+
+    private bool MatchesService(Booking booking)
+    {
+        if (string.IsNullOrWhiteSpace(serviceFilter))
+            return true;
+
+        return string.Equals(booking.Service?.Name, serviceFilter, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool MatchesStaff(Booking booking)
+    {
+        if (string.IsNullOrWhiteSpace(staffFilter))
+            return true;
+
+        return string.Equals(booking.StaffMember?.FullName, staffFilter, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ResetFilters()
+    {
+        searchText = "";
+        statusFilter = "";
+        paymentFilter = "";
+        periodFilter = "month";
+        serviceFilter = "";
+        staffFilter = "";
     }
 
     private string GetBusinessSubtitle()
@@ -348,6 +591,17 @@ else
             : business.BusinessType;
 
         return $"{type} · Öppet {business!.OpeningTime:hh\\:mm} till {business.ClosingTime:hh\\:mm}";
+    }
+
+    private static DateTime StartOfWeek(DateTime date)
+    {
+        var diff = (7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7;
+        return date.AddDays(-diff).Date;
+    }
+
+    private static bool IsCancelled(Booking booking)
+    {
+        return string.Equals(booking.Status, "Cancelled", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string GetStatusClass(string status)
@@ -385,4 +639,6 @@ else
             ? fallback
             : value;
     }
+
+    private sealed record SalesRankingItem(string Name, int Count, decimal Revenue);
 }
