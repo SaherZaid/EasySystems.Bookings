@@ -17,7 +17,7 @@
         <a class="public-navbar-brand"
            href="/"
            data-enhance-nav="false"
-           @onclick="CloseMenu">
+           @onclick="CloseAllMenus">
 
             @if (!string.IsNullOrWhiteSpace(business?.LogoUrl))
             {
@@ -50,66 +50,84 @@
             <a href="/"
                class="@GetActiveClass("/")"
                data-enhance-nav="false"
-               @onclick="CloseMenu">
+               @onclick="CloseAllMenus">
                 Hem
             </a>
 
             <a href="/booking"
                class="@GetActiveClass("/booking")"
                data-enhance-nav="false"
-               @onclick="CloseMenu">
+               @onclick="CloseAllMenus">
                 Boka ny tid
-            </a>
-
-            <a href="/services"
-               class="@GetActiveClass("/services")"
-               data-enhance-nav="false"
-               @onclick="CloseMenu">
-                Tjänster
-            </a>
-
-            <a href="/privacy"
-               class="@GetActiveClass("/privacy")"
-               data-enhance-nav="false"
-               @onclick="CloseMenu">
-                Integritet
             </a>
 
             <a href="/hours"
                class="@GetActiveClass("/hours")"
                data-enhance-nav="false"
-               @onclick="CloseMenu">
+               @onclick="CloseAllMenus">
                 Öppettider/Kontakt
             </a>
 
-            <a href="/terms"
-               class="@GetActiveClass("/terms")"
+            <a href="/services"
+               class="@GetActiveClass("/services")"
                data-enhance-nav="false"
-               @onclick="CloseMenu">
-                Villkor
+               @onclick="CloseAllMenus">
+                Tjänster
             </a>
+
+            <div class="public-navbar-dropdown">
+                <button type="button"
+                        class="public-navbar-dropdown-button @(IsMoreActive ? "active" : "")"
+                        @onclick="ToggleMoreMenu">
+                    Mer
+                    <span>▾</span>
+                </button>
+
+                <div class="public-navbar-dropdown-menu @(isMoreOpen ? "open" : "")">
+                    <a href="/privacy"
+                       class="@GetActiveClass("/privacy")"
+                       data-enhance-nav="false"
+                       @onclick="CloseAllMenus">
+                        Integritet
+                    </a>
+
+                    
+
+                    <a href="/terms"
+                       class="@GetActiveClass("/terms")"
+                       data-enhance-nav="false"
+                       @onclick="CloseAllMenus">
+                        Villkor
+                    </a>
+
+                    @if (isAuthenticated)
+                    {
+                        <div class="public-navbar-dropdown-divider"></div>
+
+                        <a href="/Account/Profile"
+                           class="@GetActiveClass("/Account/Profile")"
+                           data-enhance-nav="false"
+                           @onclick="CloseAllMenus">
+                            Profil
+                        </a>
+
+                        <a href="/Account/Bookings"
+                           class="@GetActiveClass("/Account/Bookings")"
+                           data-enhance-nav="false"
+                           @onclick="CloseAllMenus">
+                            Mina bokningar
+                        </a>
+                    }
+                </div>
+            </div>
 
             @if (isAuthenticated)
             {
-                <a href="/Account/Profile"
-                   class="@GetActiveClass("/Account/Profile")"
-                   data-enhance-nav="false"
-                   @onclick="CloseMenu">
-                    Profil
-                </a>
-
-                <a href="/Account/Bookings"
-                   class="@GetActiveClass("/Account/Bookings")"
-                   data-enhance-nav="false"
-                   @onclick="CloseMenu">
-                    Mina bokningar
-                </a>
-
                 @if (canOpenAdmin)
                 {
                     <a href="@adminUrl"
                        data-enhance-nav="false"
-                       @onclick="CloseMenu">
+                       @onclick="CloseAllMenus">
                         Admin
                     </a>
                 }
@@ -134,14 +152,14 @@
                 <a href="/Account/Login"
                    class="@GetActiveClass("/Account/Login")"
                    data-enhance-nav="false"
-                   @onclick="CloseMenu">
+                   @onclick="CloseAllMenus">
                     Logga in
                 </a>
 
                 <a href="/Account/Register"
                    class="@GetActiveClass("/Account/Register")"
                    data-enhance-nav="false"
-                   @onclick="CloseMenu">
+                   @onclick="CloseAllMenus">
                     Skapa konto
                 </a>
             }
@@ -152,9 +170,17 @@
 @code {
     private Business? business;
     private bool isOpen;
+    private bool isMoreOpen;
     private bool isAuthenticated;
     private bool canOpenAdmin;
     private string adminUrl = "/admin/businesses";
+
+    private bool IsMoreActive =>
+        IsCurrentPath("/privacy")
+        || IsCurrentPath("/hours")
+        || IsCurrentPath("/terms")
+        || IsCurrentPath("/Account/Profile")
+        || IsCurrentPath("/Account/Bookings");
 
     protected override async Task OnInitializedAsync()
     {
@@ -197,11 +223,20 @@
     private void ToggleMenu()
     {
         isOpen = !isOpen;
+
+        if (!isOpen)
+            isMoreOpen = false;
     }
 
-    private void CloseMenu()
+    private void ToggleMoreMenu()
+    {
+        isMoreOpen = !isMoreOpen;
+    }
+
+    private void CloseAllMenus()
     {
         isOpen = false;
+        isMoreOpen = false;
     }
 
     private string GetLogoutReturnUrl()
@@ -211,14 +246,17 @@
 
     private string GetActiveClass(string path)
     {
+        return IsCurrentPath(path) ? "active" : "";
+    }
+
+    private bool IsCurrentPath(string path)
+    {
         var currentPath = "/" + Navigation.ToBaseRelativePath(Navigation.Uri).Trim('/');
 
         if (currentPath == "//")
             currentPath = "/";
 
-        return string.Equals(currentPath, path, StringComparison.OrdinalIgnoreCase)
-            ? "active"
-            : "";
+        return string.Equals(currentPath, path, StringComparison.OrdinalIgnoreCase);
     }
 
     private string GetNavbarStyle()

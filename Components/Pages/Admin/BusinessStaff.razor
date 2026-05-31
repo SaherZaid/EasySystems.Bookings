@@ -59,6 +59,16 @@ else
                 </div>
             </section>
 
+            @if (!string.IsNullOrWhiteSpace(successMessage))
+            {
+                <div class="admin-alert success">@successMessage</div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="admin-alert danger">@errorMessage</div>
+            }
+
             <section class="staff-stats-grid">
                 <div class="staff-stat-card">
                     <span>Totalt</span>
@@ -151,6 +161,12 @@ else
                                     <a href="/admin/businesses/@BusinessId/staff/edit/@staff.Id">
                                         Redigera
                                     </a>
+
+                                    <button type="button"
+                                            class="staff-delete-btn"
+                                            @onclick="() => OpenDeleteModal(staff)">
+                                        Ta bort
+                                    </button>
                                 </div>
                             </div>
                         </article>
@@ -161,9 +177,51 @@ else
     </div>
 }
 
+@if (staffToDelete is not null)
+{
+    <div class="delete-modal-backdrop">
+        <div class="delete-modal">
+            <div class="delete-modal-icon">!</div>
+
+            <h2>Ta bort personal?</h2>
+
+            <p>
+                Är du säker på att du vill ta bort
+                <strong>@staffToDelete.FullName</strong>?
+            </p>
+
+            <p class="delete-modal-warning">
+                Detta går inte att ångra. Om personen har bokningar kopplade till sig kan den inte tas bort.
+            </p>
+
+            <div class="delete-modal-actions">
+                <button type="button"
+                        class="admin-secondary-btn"
+                        @onclick="CloseDeleteModal"
+                        disabled="@isDeleting">
+                    Avbryt
+                </button>
+
+                <button type="button"
+                        class="delete-confirm-btn"
+                        @onclick="ConfirmDeleteAsync"
+                        disabled="@isDeleting">
+                    @(isDeleting ? "Tar bort..." : "Ja, ta bort")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private Business? business;
     private List<StaffMember> staffMembers = [];
+
+    private StaffMember? staffToDelete;
+    private bool isDeleting;
+
+    private string? successMessage;
+    private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -172,6 +230,11 @@ else
         if (!Permissions.HasAccess || !Permissions.CanManageStaff)
             return;
 
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
         business = await Db.Businesses
             .FirstOrDefaultAsync(b => b.Id == BusinessId);
 
@@ -183,6 +246,73 @@ else
             .OrderBy(s => s.SortOrder)
             .ThenBy(s => s.FullName)
             .ToListAsync();
+    }
+
+    private void OpenDeleteModal(StaffMember staff)
+    {
+        successMessage = null;
+        errorMessage = null;
+        staffToDelete = staff;
+    }
+
+    private void CloseDeleteModal()
+    {
+        if (isDeleting)
+            return;
+
+        staffToDelete = null;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (staffToDelete is null)
+            return;
+
+        isDeleting = true;
+        successMessage = null;
+        errorMessage = null;
+
+        try
+        {
+            var staffId = staffToDelete.Id;
+            var staffName = staffToDelete.FullName;
+
+            var hasBookings = await Db.Bookings
+                .AnyAsync(b => b.BusinessId == BusinessId && b.StaffMemberId == staffId);
+
+            if (hasBookings)
+            {
+                errorMessage = $"Det går inte att ta bort {staffName} eftersom personen har bokningar kopplade till sig. Gör personen inaktiv istället.";
+                staffToDelete = null;
+                return;
+            }
+
+            var staff = await Db.StaffMembers
+                .FirstOrDefaultAsync(s => s.Id == staffId && s.BusinessId == BusinessId);
+
+            if (staff is null)
+            {
+                errorMessage = "Personalen kunde inte hittas.";
+                staffToDelete = null;
+                return;
+            }
+
+            Db.StaffMembers.Remove(staff);
+            await Db.SaveChangesAsync();
+
+            staffMembers.RemoveAll(s => s.Id == staffId);
+
+            successMessage = $"{staffName} har tagits bort.";
+            staffToDelete = null;
+        }
+        catch
+        {
+            errorMessage = "Något gick fel när personalen skulle tas bort.";
+        }
+        finally
+        {
+            isDeleting = false;
+        }
     }
 
     private static string DisplayOrFallback(string? value, string fallback)

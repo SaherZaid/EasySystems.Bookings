@@ -59,6 +59,16 @@ else
                 </div>
             </section>
 
+            @if (!string.IsNullOrWhiteSpace(successMessage))
+            {
+                <div class="admin-alert success">@successMessage</div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="admin-alert danger">@errorMessage</div>
+            }
+
             <section class="services-stats-grid">
                 <div class="services-stat-card">
                     <span>Totalt</span>
@@ -140,6 +150,12 @@ else
                                 <a href="/admin/businesses/@BusinessId/services/edit/@service.Id">
                                     Redigera
                                 </a>
+
+                                <button type="button"
+                                        class="service-delete-btn"
+                                        @onclick="() => OpenDeleteModal(service)">
+                                    Ta bort
+                                </button>
                             </div>
                         </article>
                     }
@@ -149,9 +165,51 @@ else
     </div>
 }
 
+@if (serviceToDelete is not null)
+{
+    <div class="delete-modal-backdrop">
+        <div class="delete-modal">
+            <div class="delete-modal-icon">!</div>
+
+            <h2>Ta bort tjänst?</h2>
+
+            <p>
+                Är du säker på att du vill ta bort
+                <strong>@serviceToDelete.Name</strong>?
+            </p>
+
+            <p class="delete-modal-warning">
+                Detta går inte att ångra. Om tjänsten har bokningar kopplade till sig kan den inte tas bort.
+            </p>
+
+            <div class="delete-modal-actions">
+                <button type="button"
+                        class="admin-secondary-btn"
+                        @onclick="CloseDeleteModal"
+                        disabled="@isDeleting">
+                    Avbryt
+                </button>
+
+                <button type="button"
+                        class="delete-confirm-btn"
+                        @onclick="ConfirmDeleteAsync"
+                        disabled="@isDeleting">
+                    @(isDeleting ? "Tar bort..." : "Ja, ta bort")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private Business? business;
     private List<Service> services = [];
+
+    private Service? serviceToDelete;
+    private bool isDeleting;
+
+    private string? successMessage;
+    private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -160,6 +218,11 @@ else
         if (!Permissions.HasAccess || !Permissions.CanManageServices)
             return;
 
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
         business = await Db.Businesses
             .FirstOrDefaultAsync(b => b.Id == BusinessId);
 
@@ -171,6 +234,73 @@ else
             .OrderBy(s => s.SortOrder)
             .ThenBy(s => s.Name)
             .ToListAsync();
+    }
+
+    private void OpenDeleteModal(Service service)
+    {
+        successMessage = null;
+        errorMessage = null;
+        serviceToDelete = service;
+    }
+
+    private void CloseDeleteModal()
+    {
+        if (isDeleting)
+            return;
+
+        serviceToDelete = null;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (serviceToDelete is null)
+            return;
+
+        isDeleting = true;
+        successMessage = null;
+        errorMessage = null;
+
+        try
+        {
+            var serviceId = serviceToDelete.Id;
+            var serviceName = serviceToDelete.Name;
+
+            var hasBookings = await Db.Bookings
+                .AnyAsync(b => b.BusinessId == BusinessId && b.ServiceId == serviceId);
+
+            if (hasBookings)
+            {
+                errorMessage = $"Det går inte att ta bort {serviceName} eftersom tjänsten har bokningar kopplade till sig. Gör tjänsten inaktiv istället.";
+                serviceToDelete = null;
+                return;
+            }
+
+            var service = await Db.Services
+                .FirstOrDefaultAsync(s => s.Id == serviceId && s.BusinessId == BusinessId);
+
+            if (service is null)
+            {
+                errorMessage = "Tjänsten kunde inte hittas.";
+                serviceToDelete = null;
+                return;
+            }
+
+            Db.Services.Remove(service);
+            await Db.SaveChangesAsync();
+
+            services.RemoveAll(s => s.Id == serviceId);
+
+            successMessage = $"{serviceName} har tagits bort.";
+            serviceToDelete = null;
+        }
+        catch
+        {
+            errorMessage = "Något gick fel när tjänsten skulle tas bort.";
+        }
+        finally
+        {
+            isDeleting = false;
+        }
     }
 
     private int GetAverageDuration()
