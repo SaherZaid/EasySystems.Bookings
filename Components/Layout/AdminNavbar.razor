@@ -59,6 +59,13 @@
 
         <div class="booking-admin-links @(isOpen ? "open" : "")">
 
+            <NavLink href="/"
+                     @onclick="CloseMenu">
+
+                Hem
+
+            </NavLink>
+
             @if (permissions.IsPlatformSuperAdmin)
             {
                 <NavLink href="/admin/businesses"
