@@ -312,7 +312,7 @@ else
     {
         if (staffMember is not null)
         {
-            staffMember.ImageUrl = null;
+            staffMember.ImageUrl = string.Empty;
         }
     }
 
@@ -379,11 +379,11 @@ else
             return;
 
         staffMember.FullName = staffMember.FullName?.Trim() ?? string.Empty;
-        staffMember.Email = staffMember.Email?.Trim();
-        staffMember.Phone = staffMember.Phone?.Trim();
-        staffMember.Specialization = staffMember.Specialization?.Trim();
-        staffMember.Bio = staffMember.Bio?.Trim();
-        staffMember.ImageUrl = staffMember.ImageUrl?.Trim();
+        staffMember.Email = staffMember.Email?.Trim() ?? string.Empty;
+        staffMember.Phone = staffMember.Phone?.Trim() ?? string.Empty;
+        staffMember.Specialization = staffMember.Specialization?.Trim() ?? string.Empty;
+        staffMember.Bio = staffMember.Bio?.Trim() ?? string.Empty;
+        staffMember.ImageUrl = staffMember.ImageUrl?.Trim() ?? string.Empty;
     }
 
     private bool ValidateStaff()
