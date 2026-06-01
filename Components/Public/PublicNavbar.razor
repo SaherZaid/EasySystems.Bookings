@@ -179,11 +179,10 @@
     private string adminUrl = "/admin/businesses";
 
     private bool IsMoreActive =>
-        IsCurrentPath("/privacy")
-        || IsCurrentPath("/hours")
-        || IsCurrentPath("/terms")
-        || IsCurrentPath("/Account/Profile")
-        || IsCurrentPath("/Account/Bookings");
+    IsCurrentPath("/privacy")
+    || IsCurrentPath("/terms")
+    || IsCurrentPath("/Account/Profile")
+    || IsCurrentPath("/Account/Bookings");
 
     protected override async Task OnInitializedAsync()
     {
