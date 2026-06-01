@@ -66,7 +66,23 @@ else
                 </div>
             </section>
 
-            <div class="edit-booking-grid">
+            @if (!string.IsNullOrWhiteSpace(successMessage))
+            {
+                <div class="booking-edit-feedback success">
+                    <strong>Klart!</strong>
+                    <span>@successMessage</span>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="booking-edit-feedback danger">
+                    <strong>Något gick fel</strong>
+                    <span>@errorMessage</span>
+                </div>
+            }
+
+            <div class="edit-booking-grid @(savedHighlight ? "saved-highlight" : "")">
 
                 <section class="edit-booking-card">
                     <EditForm Model="booking" OnValidSubmit="SaveAsync">
@@ -123,11 +139,11 @@ else
                             <h2>Datum och tid</h2>
 
                             <div class="create-booking-date-row">
-                                <button type="button" class="booking-date-nav" @onclick="PreviousDay">Föregående</button>
+                                <button type="button" class="booking-date-nav" @onclick="PreviousDay" disabled="@isSaving">Föregående</button>
 
                                 <InputDate class="settings-input" @bind-Value="bookingDate" @bind-Value:after="ReloadDayAsync" />
 
-                                <button type="button" class="booking-date-nav" @onclick="NextDay">Nästa</button>
+                                <button type="button" class="booking-date-nav" @onclick="NextDay" disabled="@isSaving">Nästa</button>
                             </div>
 
                             <div class="booking-date-title">
@@ -154,6 +170,7 @@ else
                                     {
                                         <button type="button"
                                                 class="admin-time-chip @(bookingTime == time ? "active" : "")"
+                                                disabled="@isSaving"
                                                 @onclick="() => SelectTime(time)">
                                             @time.ToString(@"hh\:mm")
                                         </button>
@@ -217,23 +234,13 @@ else
                                            @bind-Value="booking.Notes" />
                         </div>
 
-                        @if (!string.IsNullOrWhiteSpace(errorMessage))
-                        {
-                            <div class="settings-alert error">@errorMessage</div>
-                        }
-
-                        @if (!string.IsNullOrWhiteSpace(successMessage))
-                        {
-                            <div class="settings-alert success">@successMessage</div>
-                        }
-
                         <div class="settings-actions">
                             <button class="admin-primary-btn" type="submit" disabled="@isSaving">
-                                @(isSaving ? "Sparar..." : "Spara ändringar")
+                                @(isSaving ? "Sparar och skickar..." : "Spara ändringar")
                             </button>
 
                             <a class="admin-secondary-btn" href="/admin/businesses/@BusinessId/bookings">
-                                Avbryt
+                                Till bokningar
                             </a>
                         </div>
                     </EditForm>
@@ -355,6 +362,7 @@ else
     private string? errorMessage;
     private string? successMessage;
     private bool isSaving;
+    private bool savedHighlight;
 
     private static readonly CultureInfo SwedishCulture = new("sv-SE");
 
@@ -411,6 +419,7 @@ else
     private async Task ReloadDayAsync()
     {
         errorMessage = null;
+        savedHighlight = false;
 
         await LoadDayBookingsAsync();
         BuildAvailableTimes();
@@ -490,132 +499,152 @@ else
     private void SelectTime(TimeSpan time)
     {
         bookingTime = time;
+        savedHighlight = false;
     }
 
     private async Task SaveAsync()
     {
         errorMessage = null;
         successMessage = null;
+        savedHighlight = false;
 
         if (booking is null || business is null)
             return;
 
         isSaving = true;
 
-        booking.CustomerName = booking.CustomerName.Trim();
-        booking.CustomerEmail = booking.CustomerEmail?.Trim();
-        booking.CustomerPhone = booking.CustomerPhone?.Trim();
-
-        if (string.IsNullOrWhiteSpace(booking.CustomerName))
+        try
         {
-            errorMessage = "Kundens namn krävs.";
-            isSaving = false;
-            return;
+            booking.CustomerName = booking.CustomerName.Trim();
+            booking.CustomerEmail = booking.CustomerEmail?.Trim();
+            booking.CustomerPhone = booking.CustomerPhone?.Trim();
+
+            if (string.IsNullOrWhiteSpace(booking.CustomerName))
+            {
+                errorMessage = "Kundens namn krävs.";
+                return;
+            }
+
+            var service = services.FirstOrDefault(s => s.Id == booking.ServiceId);
+
+            if (service is null)
+            {
+                errorMessage = "Välj en tjänst.";
+                return;
+            }
+
+            var staff = staffMembers.FirstOrDefault(s => s.Id == booking.StaffMemberId);
+
+            if (staff is null)
+            {
+                errorMessage = "Välj personal.";
+                return;
+            }
+
+            var dayHours = SelectedDayHours;
+
+            if (dayHours is null || !dayHours.IsOpen)
+            {
+                errorMessage = "Verksamheten är stängd denna dag.";
+                return;
+            }
+
+            booking.StartTime = bookingDate.Date.Add(bookingTime);
+            booking.EndTime = booking.StartTime.AddMinutes(service.DurationMinutes);
+            booking.UpdatedAt = DateTime.UtcNow;
+
+            if (booking.StartTime.TimeOfDay < dayHours.Open ||
+                booking.EndTime.TimeOfDay > dayHours.Close)
+            {
+                errorMessage = $"Bokningen måste vara inom öppettiderna: {dayHours.Open:hh\\:mm} - {dayHours.Close:hh\\:mm}.";
+                return;
+            }
+
+            if (booking.IsPaid && booking.PaidAmount < 0)
+            {
+                errorMessage = "Betalt belopp kan inte vara negativt.";
+                return;
+            }
+
+            if (!booking.IsPaid)
+            {
+                booking.PaidAmount = 0;
+                booking.PaymentMethod = null;
+            }
+
+            if (booking.Status != "Cancelled")
+            {
+                booking.CancellationReason = null;
+            }
+
+            var hasConflict = await Db.Bookings
+                .AnyAsync(b =>
+                    b.Id != booking.Id &&
+                    b.BusinessId == BusinessId &&
+                    b.StaffMemberId == booking.StaffMemberId &&
+                    b.Status != "Cancelled" &&
+                    booking.StartTime < b.EndTime &&
+                    booking.EndTime > b.StartTime);
+
+            if (hasConflict)
+            {
+                errorMessage = "Personalen har redan en bokning under denna tid.";
+                await ReloadDayAsync();
+                return;
+            }
+
+            if (!availableTimes.Contains(bookingTime))
+            {
+                errorMessage = "Välj en ledig tid från listan.";
+                await ReloadDayAsync();
+                return;
+            }
+
+            var oldStatus = originalStatus;
+            var newStatus = booking.Status;
+
+            await Db.SaveChangesAsync();
+
+            var emailSent = await SendStatusEmailIfNeededAsync(booking.Id, oldStatus, newStatus);
+
+            originalStatus = newStatus;
+            savedHighlight = true;
+
+            successMessage = oldStatus != newStatus
+                ? emailSent
+                    ? $"Bokningen sparades. Status ändrad till {TranslateStatus(newStatus).ToLower()} och kunden har fått ett mail."
+                    : $"Bokningen sparades. Status ändrad till {TranslateStatus(newStatus).ToLower()}, men inget mail skickades."
+                : "Bokningen har sparats.";
         }
-
-        var service = services.FirstOrDefault(s => s.Id == booking.ServiceId);
-
-        if (service is null)
+        catch (Exception ex)
         {
-            errorMessage = "Välj en tjänst.";
-            isSaving = false;
-            return;
+            Logger.LogError(ex, "Failed to save booking {BookingId}", Id);
+            errorMessage = "Bokningen kunde inte sparas. Försök igen.";
         }
-
-        var staff = staffMembers.FirstOrDefault(s => s.Id == booking.StaffMemberId);
-
-        if (staff is null)
+        finally
         {
-            errorMessage = "Välj personal.";
-            isSaving = false;
-            return;
-        }
-
-        var dayHours = SelectedDayHours;
-
-        if (dayHours is null || !dayHours.IsOpen)
-        {
-            errorMessage = "Verksamheten är stängd denna dag.";
-            isSaving = false;
-            return;
-        }
-
-        booking.StartTime = bookingDate.Date.Add(bookingTime);
-        booking.EndTime = booking.StartTime.AddMinutes(service.DurationMinutes);
-        booking.UpdatedAt = DateTime.UtcNow;
-
-        if (booking.StartTime.TimeOfDay < dayHours.Open ||
-            booking.EndTime.TimeOfDay > dayHours.Close)
-        {
-            errorMessage = $"Bokningen måste vara inom öppettiderna: {dayHours.Open:hh\\:mm} - {dayHours.Close:hh\\:mm}.";
-            isSaving = false;
-            return;
-        }
-
-        if (booking.IsPaid && booking.PaidAmount < 0)
-        {
-            errorMessage = "Betalt belopp kan inte vara negativt.";
-            isSaving = false;
-            return;
-        }
-
-        if (!booking.IsPaid)
-        {
-            booking.PaidAmount = 0;
-            booking.PaymentMethod = null;
-        }
-
-        if (booking.Status != "Cancelled")
-        {
-            booking.CancellationReason = null;
-        }
-
-        var hasConflict = await Db.Bookings
-            .AnyAsync(b =>
-                b.Id != booking.Id &&
-                b.BusinessId == BusinessId &&
-                b.StaffMemberId == booking.StaffMemberId &&
-                b.Status != "Cancelled" &&
-                booking.StartTime < b.EndTime &&
-                booking.EndTime > b.StartTime);
-
-        if (hasConflict)
-        {
-            errorMessage = "Personalen har redan en bokning under denna tid.";
             isSaving = false;
             await ReloadDayAsync();
-            return;
         }
-
-        if (!availableTimes.Contains(bookingTime))
-        {
-            errorMessage = "Välj en ledig tid från listan.";
-            isSaving = false;
-            await ReloadDayAsync();
-            return;
-        }
-
-        await Db.SaveChangesAsync();
-
-        await SendStatusEmailIfNeededAsync(booking.Id, originalStatus, booking.Status);
-
-        Navigation.NavigateTo($"/admin/businesses/{BusinessId}/bookings");
     }
 
-    private async Task SendStatusEmailIfNeededAsync(int bookingId, string oldStatus, string newStatus)
+    private async Task<bool> SendStatusEmailIfNeededAsync(int bookingId, string oldStatus, string newStatus)
     {
-        if (oldStatus == newStatus)
-            return;
+        if (string.Equals(oldStatus, newStatus, StringComparison.OrdinalIgnoreCase))
+            return false;
 
         var savedBooking = await Db.Bookings
             .AsNoTracking()
             .Include(b => b.Business)
             .Include(b => b.Service)
             .Include(b => b.StaffMember)
-            .FirstOrDefaultAsync(b => b.Id == bookingId);
+            .FirstOrDefaultAsync(b => b.Id == bookingId && b.BusinessId == BusinessId);
 
         if (savedBooking is null)
-            return;
+            return false;
+
+        if (string.IsNullOrWhiteSpace(savedBooking.CustomerEmail))
+            return false;
 
         try
         {
@@ -627,12 +656,20 @@ else
             {
                 await BookingEmailSender.SendBookingCancelledToCustomerAsync(savedBooking);
             }
+            else
+            {
+                await BookingEmailSender.SendBookingStatusChangedToCustomerAsync(savedBooking);
+            }
+
+            return true;
         }
         catch (Exception ex)
         {
             Logger.LogError(ex,
                 "Failed to send booking status email for booking {BookingId}",
                 bookingId);
+
+            return false;
         }
     }
 

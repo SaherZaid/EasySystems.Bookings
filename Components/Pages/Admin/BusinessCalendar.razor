@@ -4,11 +4,14 @@
 @using EasySystems.Bookings.Components.Admin
 @using EasySystems.Bookings.Data
 @using EasySystems.Bookings.Data.Entities
+@using EasySystems.Bookings.Services
 @using Microsoft.EntityFrameworkCore
 
 @inherits AdminBusinessPageBase
 
 @inject ApplicationDbContext Db
+@inject IBookingEmailSender BookingEmailSender
+@inject ILoggerFactory LoggerFactory
 
 <PageTitle>Kalender | EasySystems</PageTitle>
 
@@ -67,6 +70,22 @@ else
                     </a>
                 </div>
             </section>
+
+            @if (!string.IsNullOrWhiteSpace(successMessage))
+            {
+                <div class="calendar-feedback success">
+                    <strong>Klart!</strong>
+                    <span>@successMessage</span>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="calendar-feedback danger">
+                    <strong>Något gick fel</strong>
+                    <span>@errorMessage</span>
+                </div>
+            }
 
             <section class="calendar-picker-card">
                 <div class="calendar-picker-head">
@@ -168,7 +187,7 @@ else
                     <div class="calendar-booking-list">
                         @foreach (var booking in dayBookings)
                         {
-                            <article class="calendar-booking-card">
+                            <article class="calendar-booking-card @(lastUpdatedBookingId == booking.Id ? "status-updated" : "") @(IsSaving(booking.Id) ? "status-saving" : "")">
                                 <div class="calendar-booking-time">
                                     <strong>@booking.StartTime.ToString("HH:mm")</strong>
                                     <span>@booking.EndTime.ToString("HH:mm")</span>
@@ -182,9 +201,16 @@ else
                                         </div>
 
                                         <div class="booking-badges">
-                                            <span class="@GetStatusClass(booking.Status)">
-                                                @TranslateStatus(booking.Status)
-                                            </span>
+                                            @if (IsSaving(booking.Id))
+                                            {
+                                                <span class="booking-pill muted">Uppdaterar...</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="@GetStatusClass(booking.Status)">
+                                                    @TranslateStatus(booking.Status)
+                                                </span>
+                                            }
 
                                             <span class="@GetPaymentClass(booking.IsPaid)">
                                                 @(booking.IsPaid ? "Betald" : "Obetald")
@@ -231,21 +257,21 @@ else
                                                     class="status-action confirm"
                                                     disabled="@IsSaving(booking.Id)"
                                                     @onclick='() => ChangeStatusAsync(booking.Id, "Confirmed")'>
-                                                Bekräfta
+                                                @(IsSaving(booking.Id) ? "Sparar..." : "Bekräfta")
                                             </button>
 
                                             <button type="button"
                                                     class="status-action pending"
                                                     disabled="@IsSaving(booking.Id)"
                                                     @onclick='() => ChangeStatusAsync(booking.Id, "Pending")'>
-                                                Väntar
+                                                @(IsSaving(booking.Id) ? "Sparar..." : "Väntar")
                                             </button>
 
                                             <button type="button"
                                                     class="status-action cancel"
                                                     disabled="@IsSaving(booking.Id)"
                                                     @onclick='() => ChangeStatusAsync(booking.Id, "Cancelled")'>
-                                                Avboka
+                                                @(IsSaving(booking.Id) ? "Sparar..." : "Avboka")
                                             </button>
                                         </div>
 
@@ -278,7 +304,13 @@ else
 
     private HashSet<int> savingBookingIds = [];
 
+    private string? successMessage;
+    private string? errorMessage;
+    private int? lastUpdatedBookingId;
+
     private static readonly System.Globalization.CultureInfo SwedishCulture = new("sv-SE");
+
+    private ILogger Logger => LoggerFactory.CreateLogger("AdminCalendar");
 
     private IEnumerable<DateTime> MonthDays
     {
@@ -347,6 +379,7 @@ else
     private async Task SelectDay(DateTime day)
     {
         selectedDate = day.Date;
+        ClearMessages();
 
         if (visibleMonth.Month != selectedDate.Month || visibleMonth.Year != selectedDate.Year)
         {
@@ -361,6 +394,8 @@ else
     {
         visibleMonth = visibleMonth.AddMonths(-1);
         selectedDate = visibleMonth;
+        ClearMessages();
+
         await LoadMonthAsync();
         LoadDayBookings();
     }
@@ -369,6 +404,8 @@ else
     {
         visibleMonth = visibleMonth.AddMonths(1);
         selectedDate = visibleMonth;
+        ClearMessages();
+
         await LoadMonthAsync();
         LoadDayBookings();
     }
@@ -387,6 +424,8 @@ else
     {
         selectedDate = DateTime.Today;
         visibleMonth = new DateTime(selectedDate.Year, selectedDate.Month, 1);
+        ClearMessages();
+
         await LoadMonthAsync();
         LoadDayBookings();
     }
@@ -409,21 +448,117 @@ else
     private async Task ChangeStatusAsync(int bookingId, string status)
     {
         savingBookingIds.Add(bookingId);
+        successMessage = null;
+        errorMessage = null;
+        lastUpdatedBookingId = null;
 
-        var booking = await Db.Bookings
-            .FirstOrDefaultAsync(b => b.Id == bookingId && b.BusinessId == BusinessId);
-
-        if (booking is not null)
+        try
         {
+            var booking = await Db.Bookings
+                .FirstOrDefaultAsync(b => b.Id == bookingId && b.BusinessId == BusinessId);
+
+            if (booking is null)
+            {
+                errorMessage = "Bokningen kunde inte hittas.";
+                return;
+            }
+
+            var oldStatus = booking.Status;
+
+            if (string.Equals(oldStatus, status, StringComparison.OrdinalIgnoreCase))
+            {
+                successMessage = $"Bokningen är redan markerad som {TranslateStatus(status).ToLower()}.";
+                lastUpdatedBookingId = bookingId;
+                return;
+            }
+
             booking.Status = status;
             booking.UpdatedAt = DateTime.UtcNow;
+
+            if (status != "Cancelled")
+            {
+                booking.CancellationReason = null;
+            }
+
             await Db.SaveChangesAsync();
+
+            var emailSent = await SendStatusEmailIfNeededAsync(booking.Id, oldStatus, status);
+
+            lastUpdatedBookingId = bookingId;
+
+            successMessage = emailSent
+                ? $"Status ändrad till {TranslateStatus(status).ToLower()}. Kunden har fått ett mail."
+                : $"Status ändrad till {TranslateStatus(status).ToLower()}, men inget mail kunde skickas.";
         }
+        catch (Exception ex)
+        {
+            Logger.LogError(
+                ex,
+                "Failed to change booking status from calendar for booking {BookingId}",
+                bookingId);
 
-        savingBookingIds.Remove(bookingId);
+            errorMessage = "Statusen kunde inte uppdateras. Försök igen.";
+        }
+        finally
+        {
+            savingBookingIds.Remove(bookingId);
 
-        await LoadMonthAsync();
-        LoadDayBookings();
+            await LoadMonthAsync();
+            LoadDayBookings();
+        }
+    }
+
+    private async Task<bool> SendStatusEmailIfNeededAsync(int bookingId, string oldStatus, string newStatus)
+    {
+        if (string.Equals(oldStatus, newStatus, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var savedBooking = await Db.Bookings
+            .AsNoTracking()
+            .Include(b => b.Business)
+            .Include(b => b.Service)
+            .Include(b => b.StaffMember)
+            .FirstOrDefaultAsync(b => b.Id == bookingId && b.BusinessId == BusinessId);
+
+        if (savedBooking is null)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(savedBooking.CustomerEmail))
+            return false;
+
+        try
+        {
+            if (newStatus == "Confirmed")
+            {
+                await BookingEmailSender.SendBookingConfirmedToCustomerAsync(savedBooking);
+            }
+            else if (newStatus == "Cancelled")
+            {
+                await BookingEmailSender.SendBookingCancelledToCustomerAsync(savedBooking);
+            }
+            else
+            {
+                await BookingEmailSender.SendBookingStatusChangedToCustomerAsync(savedBooking);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(
+                ex,
+                "Failed to send booking status email from calendar for booking {BookingId}",
+                bookingId);
+
+            return false;
+        }
+    }
+
+    private void ClearMessages()
+    {
+        successMessage = null;
+        errorMessage = null;
+        lastUpdatedBookingId = null;
     }
 
     private static string GetStatusClass(string status)

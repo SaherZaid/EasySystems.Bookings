@@ -178,6 +178,7 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
             <p>Din bokning har nu blivit <strong>bekräftad</strong>.</p>
             {BuildBookingDetailsBox(booking)}
             <p>Vi ser fram emot ditt besök hos <strong>{Encode(booking.Business.Name)}</strong>.</p>
+            {BuildCustomerReplyNotice(booking)}
             """,
             null,
             null,
@@ -204,6 +205,7 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
             <p>Din bokning har blivit <strong>avbokad</strong>.</p>
             {BuildBookingDetailsBox(booking)}
             {BuildCancellationReasonBox(booking)}
+            {BuildCustomerReplyNotice(booking)}
             """,
             null,
             null,
@@ -265,6 +267,7 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
         <p>Vi har tagit emot din bokningsförfrågan. Bokningen är just nu <strong>väntande</strong>.</p>
         {BuildBookingDetailsBox(booking)}
         <p>Du får ett nytt mail när bokningen bekräftas, ändras eller avbokas.</p>
+        {BuildCustomerReplyNotice(booking)}
         """;
     }
 
@@ -288,6 +291,35 @@ public class SmtpEmailSender : IEmailSender<ApplicationUser>, IBookingEmailSende
         <p>Statusen för din bokning har uppdaterats till <strong>{Encode(TranslateStatus(booking.Status))}</strong>.</p>
         {BuildBookingDetailsBox(booking)}
         {BuildCancellationReasonBox(booking)}
+        {BuildCustomerReplyNotice(booking)}
+        """;
+    }
+
+    private string BuildCustomerReplyNotice(Booking booking)
+    {
+        if (!string.IsNullOrWhiteSpace(booking.Business.Email))
+        {
+            return $"""
+            <div style="margin-top:22px;padding:18px;border-radius:22px;background:#f9fafb;border:1px solid #e5e7eb;">
+              <p style="margin:0 0 8px;color:#374151;">
+                <strong>Observera:</strong> Detta är ett automatiskt meddelande och det går inte att svara på detta mail.
+              </p>
+              <p style="margin:0;color:#374151;">
+                Om du vill kontakta <strong>{Encode(booking.Business.Name)}</strong>, skicka ett mail till:
+                <a href="mailto:{Encode(booking.Business.Email)}" style="color:#9a7b4f;font-weight:900;text-decoration:none;">
+                  {Encode(booking.Business.Email)}
+                </a>
+              </p>
+            </div>
+            """;
+        }
+
+        return """
+        <div style="margin-top:22px;padding:18px;border-radius:22px;background:#f9fafb;border:1px solid #e5e7eb;">
+          <p style="margin:0;color:#374151;">
+            <strong>Observera:</strong> Detta är ett automatiskt meddelande och det går inte att svara på detta mail.
+          </p>
+        </div>
         """;
     }
 
