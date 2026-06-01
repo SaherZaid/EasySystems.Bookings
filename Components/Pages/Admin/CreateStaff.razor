@@ -319,7 +319,7 @@ else
 
     private void RemoveImage()
     {
-        staffMember.ImageUrl = string.Empty;
+        staffMember.ImageUrl = null;
     }
 
     protected override async Task OnInitializedAsync()
@@ -371,11 +371,11 @@ else
     private void NormalizeStaff()
     {
         staffMember.FullName = staffMember.FullName?.Trim() ?? string.Empty;
-        staffMember.Email = staffMember.Email?.Trim() ?? string.Empty;
+        staffMember.Email = staffMember.Email?.Trim();
         staffMember.Phone = staffMember.Phone?.Trim() ?? string.Empty;
-        staffMember.Specialization = staffMember.Specialization?.Trim() ?? string.Empty;
-        staffMember.Bio = staffMember.Bio?.Trim() ?? string.Empty;
-        staffMember.ImageUrl = staffMember.ImageUrl?.Trim() ?? string.Empty;
+        staffMember.Specialization = staffMember.Specialization?.Trim();
+        staffMember.Bio = staffMember.Bio?.Trim();
+        staffMember.ImageUrl = staffMember.ImageUrl?.Trim();
     }
 
     private bool ValidateStaff()
